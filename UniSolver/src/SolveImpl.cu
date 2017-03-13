@@ -1,6 +1,7 @@
 #include "SolveImpl.h"
 #include "Solver.h"
 #include "Utils.cuh"
+#include "GraphColoring.cuh"
 
 #include <vector>
 
@@ -10,63 +11,41 @@
 #include <device_atomic_functions.h>
 #include <device_functions.h>
 
-//#define DEBUG_CUDA
-//#define DEBUG_GRAPH_COLORING
-//#define DEBUG_GRAPH_COLORING_REDUCE
-//#define PROFILE_CUDA
-
 namespace uni
 {
 	__device__ float eps = 1e-20f;
 
 	int threadsPerBlock = 512;
 
-	__global__ void reduce_k(int * in_idata, int * out_data, int size)
-	{
-		extern __shared__ int sdata[];
-
-		unsigned int tid = threadIdx.x;
-		unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
-		if (i < size) sdata[tid] = in_idata[i];
-		else sdata[tid] = 0;
-		__syncthreads();
-
-		for (unsigned int s = blockDim.x / 2; s > 32; s >>= 1)
-		{
-			if (tid < s) sdata[tid] += sdata[tid + s];
-			__syncthreads();
-		}
-
-		if (tid < 32)
-		{
-			sdata[tid] += sdata[tid + 32];
-			sdata[tid] += sdata[tid + 16];
-			sdata[tid] += sdata[tid + 8];
-			sdata[tid] += sdata[tid + 4];
-			sdata[tid] += sdata[tid + 2];
-			sdata[tid] += sdata[tid + 1];
-		}
-
-		if (tid == 0) out_data[blockIdx.x] = sdata[0];
-	}
 
 	/***********************************************************************************/
 
-	template <int Size>
-	struct Palette
+	template <typename AdjItemType>
+	__global__ void adjTable_k(DistCons * cons, AdjItemType * adj_cons, int con_size)
 	{
-		static const int max_size = Size;
-		int valid_size;
-		int colors[max_size];
-	};
+		unsigned int cid = threadIdx.x + blockDim.x * blockIdx.x;
+		if (cid >= con_size) return;
 
-	template <int Size>
-	struct AdjItem
-	{
-		static const int max_size = Size;
-		int valid_size;
-		int adjs[max_size];
-	};
+		//is_colored[cid] = 0;
+
+		//palettes[cid].valid_size = palettes[cid].max_size * 0.94f;
+		//for (int i = 0; i < palettes[cid].valid_size; ++i)
+		//	palettes[cid].colors[i] = 1;
+
+		int pid0 = cons[cid].pid.x;
+		int pid1 = cons[cid].pid.y;
+
+		adj_cons[cid].valid_size = 0;
+		for (int i = 0; i < con_size; ++i)
+		{
+			if (cid != i &&
+				(cons[i].pid.x == pid0 || cons[i].pid.x == pid1 || cons[i].pid.y == pid0 || cons[i].pid.y == pid1))
+			{
+				adj_cons[cid].adjs[adj_cons[cid].valid_size] = i;
+				adj_cons[cid].valid_size += 1;
+			}
+		}
+	}
 
 	__global__ void freeRun_Gauss_k(float3 * x, float3 * p, float3 * v, float * inv_m, float time_step, unsigned int p_size)
 	{
@@ -121,223 +100,23 @@ namespace uni
 		x[pid] = p[pid];
 	}
 
-	template <typename AdjItemType, typename PaletteType>
-	__global__ void preColoring_Gauss_k(DistCons * cons, int * is_colored, PaletteType * palettes, AdjItemType * adj_cons, int con_size)
+	template <int MaxDegree>
+	void callGraphColoring_Gauss(SolverData * data, int * cons_colors, unsigned int cons_size)
 	{
-		unsigned int cid = threadIdx.x + blockDim.x * blockIdx.x;
-		if (cid >= con_size) return;
-
-		is_colored[cid] = 0;
-
-		palettes[cid].valid_size = palettes[cid].max_size * 0.94f;
-		for (int i = 0; i < palettes[cid].valid_size; ++i)
-			palettes[cid].colors[i] = 1;
-
-		int pid0 = cons[cid].pid.x;
-		int pid1 = cons[cid].pid.y;
-
-		adj_cons[cid].valid_size = 0;
-		for (int i = 0; i < con_size; ++i)
-		{
-			if (cid != i &&
-				(cons[i].pid.x == pid0 || cons[i].pid.x == pid1 || cons[i].pid.y == pid0 || cons[i].pid.y == pid1))
-			{
-				adj_cons[cid].adjs[adj_cons[cid].valid_size] = i;
-				adj_cons[cid].valid_size += 1;
-			}
-		}
-	}
-
-	template <typename AdjItemType, typename PaletteType>
-	__global__ void tentativeColoring_Gauss_k_debug(DistCons * cons, int * is_colored, PaletteType * palettes, int * colors, int iter_no, int con_size)
-	{
-		unsigned int cid = threadIdx.x + blockDim.x * blockIdx.x;
-		if (cid >= con_size) return;
-		if (is_colored[cid] == 1) return;
-		unsigned int no = cid % int(palettes[cid].max_size * 0.94f);
-		int cnt = 0;
-		for (int i = 0; ; i = (i + 1) % palettes[cid].valid_size)
-		{
-			if (palettes[cid].colors[i] == 1)
-			{
-				cnt += 1;
-				if (cnt >= no)
-				{
-					colors[cid] = i;
-					break;
-				}
-			}
-		}
-	}
-
-	template <typename AdjItemType, typename PaletteType>
-	__global__ void tentativeColoring_Gauss_k(DistCons * cons, int * is_colored, PaletteType * palettes, int * colors, int iter_no, int con_size)
-	{
-		unsigned int cid = threadIdx.x + blockDim.x * blockIdx.x;
-		if (cid >= con_size) return;
-		if (is_colored[cid] == 1) return;
-		
-		//unsigned int no = (cid + iter_no + 68857) % int(palettes[cid].max_size * 0.94f);
-		unsigned int seed = range_rand(97, cid + iter_no);
-		unsigned int no = range_rand(palettes[cid].max_size * 0.94f, seed);
-		int cnt = 0;
-		for (int i = 0; ; i = (i + 1) % palettes[cid].valid_size)
-		{
-			if (palettes[cid].colors[i] == 1)
-			{
-				cnt += 1;
-				if (cnt >= no)
-				{
-					colors[cid] = i;
-					break;
-				}
-			}
-		}
-	}
-
-	template <typename AdjItemType, typename PaletteType>
-	__global__ void conflictResolution_Gauss_k(DistCons * cons, int * is_colored, PaletteType * palettes, AdjItemType * adj_cons, int * colors, int con_size)
-	{
-		unsigned int cid = threadIdx.x + blockDim.x * blockIdx.x;
-		if (cid >= con_size) return;
-		if (is_colored[cid] == 1) return;
-
-		bool is_conflict = false;
-		for (int i = 0; i < adj_cons[cid].valid_size; ++i)
-		{
-			if (colors[adj_cons[cid].adjs[i]] == colors[cid])
-			{
-				is_conflict = true;
-				break;
-			}
-		}
-		if (is_conflict) return;
-
-		for (int i = 0; i < adj_cons[cid].valid_size; ++i)
-		{
-			palettes[adj_cons[cid].adjs[i]].colors[colors[cid]] = 0;
-		}
-		is_colored[cid] = 1;
-	}
-
-	template <typename AdjItemType, typename PaletteType>
-	__global__ void feedTheHungury_Gauss_k(DistCons * cons, int * is_colored, PaletteType * palettes, int con_size)
-	{
-		unsigned int cid = threadIdx.x + blockDim.x * blockIdx.x;
-		if (cid >= con_size) return;
-		if (is_colored[cid] == 1) return;
-
-		int count = 0;
-		for (int i = 0; i < palettes[cid].valid_size; ++i)
-		{
-			if (palettes[cid].colors[i] == 1) count += 1;
-		}
-		if (count == 0)
-		{
-			palettes[cid].colors[palettes[cid].valid_size] == 1;
-			palettes[cid].valid_size += 1;
-		}
-	}
-
-	__global__ void checkMemory_Gauss_k(int * is_colored, int con_size, int * all_colored)
-	{
-		unsigned int cid = threadIdx.x + blockDim.x * blockIdx.x;
-		if (cid >= con_size) return;
-		if (is_colored[cid] == 0) *all_colored = 0;
-	}
-
-	template <typename AdjItemType, typename PaletteType>
-	void cons_graph_coloring(SolverData * data, int * colors, unsigned int cons_size)
-	{
-		static AdjItemType * adj_cons = nullptr;
-		static PaletteType * palettes = nullptr;
-		static int * is_colored = nullptr;
-		static int * is_colored_cache = nullptr;
-		if (adj_cons == nullptr)
-			cudaMalloc((void **)&adj_cons, cons_size * sizeof(AdjItemType));
-		if (palettes == nullptr)
-			cudaMalloc((void **)&palettes, cons_size * sizeof(PaletteType));
-		if (is_colored == nullptr)
-			cudaMalloc((void **)&is_colored, cons_size * sizeof(int));
-		if (is_colored_cache == nullptr)
-			cudaMalloc((void **)&is_colored_cache, cons_size * sizeof(int));
+		static AdjItem<MaxDegree> * adj_table = nullptr;
+		if (adj_table == nullptr)
+			cudaMalloc((void **)&adj_table, cons_size * sizeof(AdjItem<MaxDegree>));
 
 		int threadsPerBlock = 1024;
+
 		dim3 con_blocks((cons_size + threadsPerBlock - 1) / threadsPerBlock);
 		dim3 con_threads(threadsPerBlock);
 
-		checkCudaErrors(cudaMemset(is_colored, 0, cons_size * sizeof(int)));
-		checkCudaErrors(cudaMemset(is_colored_cache, 0, con_blocks.x * sizeof(int)));
-		std::vector<int> host_is_colored(cons_size, 0);
-
-#ifdef DEBUG_CUDA		
-		std::cout << "pre coloring process" << std::endl;
-#endif
-		checkCudaErrors(cudaDeviceSynchronize());
-		preColoring_Gauss_k<AdjItemType, PaletteType> << <con_blocks, con_threads >> >(data->cons, is_colored, palettes, adj_cons, cons_size);
+		adjTable_k<AdjItem<MaxDegree>> << <con_blocks, con_threads >> > (data->cons, adj_table, cons_size);
 		getLastCudaError("Kernel execution failed");
 		checkCudaErrors(cudaDeviceSynchronize());
 
-		int iter_no = 0;
-		bool all_colored = false;
-		while (all_colored == false)
-		{
-#ifdef DEBUG_CUDA		
-			std::cout << "iterate coloring process" << std::endl;
-#endif
-			tentativeColoring_Gauss_k<AdjItemType, PaletteType> << <con_blocks, con_threads >> >(data->cons, is_colored, palettes, colors, iter_no, cons_size);
-			getLastCudaError("Kernel execution failed");
-			checkCudaErrors(cudaDeviceSynchronize());
-
-			conflictResolution_Gauss_k<AdjItemType, PaletteType> << <con_blocks, con_threads >> >(data->cons, is_colored, palettes, adj_cons, colors, cons_size);
-			getLastCudaError("Kernel execution failed");
-			checkCudaErrors(cudaDeviceSynchronize());
-
-			feedTheHungury_Gauss_k<AdjItemType, PaletteType> << <con_blocks, con_threads >> >(data->cons, is_colored, palettes, cons_size);
-			getLastCudaError("Kernel execution failed");
-			checkCudaErrors(cudaDeviceSynchronize());
-
-			checkCudaErrors(cudaMemcpy(host_is_colored.data(), is_colored, cons_size * sizeof(int), cudaMemcpyDeviceToHost));
-			all_colored = true;
-			for (int i = 0; i < cons_size; ++i)
-			{
-				if (host_is_colored[i] == 0)
-				{
-					all_colored = false;
-					break;
-				}
-			}
-
-#ifdef DEBUG_GRAPH_COLORING_REDUCE
-			int uncolored_count = cons_size;
-			std::vector<int> host_is_colored(con_blocks.x, 0);
-			reduce_k <<< con_blocks, con_threads, con_threads.x * sizeof(int) >> > (is_colored, is_colored_cache, cons_size);
-			getLastCudaError("Kernel execution failed");
-			checkCudaErrors(cudaDeviceSynchronize());
-
-			checkCudaErrors(cudaMemcpy(host_is_colored.data(), is_colored_cache, con_blocks.x * sizeof(int), cudaMemcpyDeviceToHost));
-			uncolored_count = cons_size;
-			for (int i = 0; i < con_blocks.x; ++i)
-				uncolored_count -= host_is_colored[i];
-#endif
-
-#ifdef DEBUG_GRAPH_COLORING
-			int uncolored_count = cons_size;
-			std::vector<int> host_is_colored(cons_size, 0);
-			checkCudaErrors(cudaMemcpy(host_is_colored.data(), is_colored, cons_size * sizeof(int), cudaMemcpyDeviceToHost));
-			uncolored_count = 0;
-			for (int i = 0; i < cons_size; ++i)
-				if (host_is_colored[i] == 0) uncolored_count += 1;
-
-#ifdef DEBUG_CUDA		
-			std::cout << "uncolored " << uncolored_count << std::endl;
-#endif
-
-#endif
-
-			iter_no += 1;
-		}
-
+		graph_coloring<MaxDegree>(adj_table, cons_colors, cons_size);
 	}
 
 	void solve_Gauss(SolverData * data, unsigned int p_size, unsigned int cons_size, float time_step, int iter_cnt)
@@ -345,7 +124,7 @@ namespace uni
 		static int * colors = nullptr;
 		if (colors == nullptr)
 			cudaMalloc((void **)&colors, cons_size * sizeof(int));
-		
+
 #ifdef PROFILE_CUDA
 		cudaEvent_t start, stop;
 		checkCudaErrors(cudaEventCreate(&start));
@@ -365,14 +144,10 @@ namespace uni
 		getLastCudaError("Kernel execution failed");
 		checkCudaErrors(cudaDeviceSynchronize());
 
-		using AdjItem8 = AdjItem<16>;
-		using Palette8 = Palette<16>;
-		cons_graph_coloring<AdjItem8, Palette8>(data, colors, cons_size);
+		callGraphColoring_Gauss<16>(data, colors, cons_size);
 
 		for (int i = 0; i < iter_cnt; ++i)
 		{
-			//for (int j = 0; j < cons_size; ++j)
-			//	projectConstraint_Gauss_k << <1, 1 >> >(data->x, data->p, data->v, data->inv_m, data->cons, j);
 			for (int gid = 0; gid < 16; ++gid)
 			{
 				projectConstraint_Gauss_k << <con_blocks, con_threads >> >(data->x, data->p, data->v, data->inv_m, data->cons, colors, cons_size, gid);
@@ -384,7 +159,6 @@ namespace uni
 		updateState_Gauss_k <<<p_blocks, p_threads>>>(data->x, data->p, data->v, data->inv_m, time_step, p_size);
 		getLastCudaError("Kernel execution failed");
 		checkCudaErrors(cudaDeviceSynchronize());
-
 
 #ifdef PROFILE_CUDA
 		checkCudaErrors(cudaEventRecord(stop, 0));
