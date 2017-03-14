@@ -164,6 +164,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\Collision.h" />
     <ClInclude Include="src\GraphColoring.cuh" />
     <ClInclude Include="src\helper_cuda.h" />
     <ClInclude Include="src\helper_string.h" />
@@ -175,6 +176,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClCompile Include="src\Main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <CudaCompile Include="src\Collision.cu" />
     <CudaCompile Include="src\SolveImpl.cu" />
     <CudaCompile Include="src\Solver.cu" />
   </ItemGroup>

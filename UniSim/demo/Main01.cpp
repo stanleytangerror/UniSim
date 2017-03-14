@@ -62,7 +62,7 @@ private:
 	std::vector<float3> velocities;
 	std::vector<float> inv_masses;
 	std::vector<int> active_particles;
-	std::vector<uni::DistCons> constraints;
+	std::vector<uni::DistanceConstraint> constraints;
 
 public:
 	PhysicsActor(SurfaceMeshObject * meshobj, int iter_cnt) :

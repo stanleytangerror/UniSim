@@ -1,6 +1,7 @@
 #include "Solver.h"
 #include "SolveImpl.h"
 #include "Utils.cuh"
+#include "helper_cuda.h"
 
 #include <cuda_runtime.h>
 #include <iostream>
@@ -30,7 +31,7 @@ namespace uni
 		checkCudaErrors(cudaMalloc((void**)&data->x, p_size * sizeof(float3)));
 		checkCudaErrors(cudaMalloc((void**)&data->v, p_size * sizeof(float3)));
 		checkCudaErrors(cudaMalloc((void**)&data->inv_m, p_size * sizeof(float)));
-		checkCudaErrors(cudaMalloc((void**)&data->cons, constraint_size * sizeof(DistCons)));
+		checkCudaErrors(cudaMalloc((void**)&data->cons, constraint_size * sizeof(DistanceConstraint)));
 	}
 
 	void set_positions(SolverData * data, float3 * host_positions, unsigned int p_size)
@@ -49,9 +50,9 @@ namespace uni
 		checkCudaErrors(cudaMemcpy(data->inv_m, host_inv_m, p_size * sizeof(float), cudaMemcpyHostToDevice));
 	}
 
-	void set_constraints(SolverData * data, DistCons * host_constraints, unsigned int constraint_size)
+	void set_constraints(SolverData * data, DistanceConstraint * host_constraints, unsigned int constraint_size)
 	{
-		checkCudaErrors(cudaMemcpy(data->cons, host_constraints, constraint_size * sizeof(DistCons), cudaMemcpyHostToDevice));
+		checkCudaErrors(cudaMemcpy(data->cons, host_constraints, constraint_size * sizeof(DistanceConstraint), cudaMemcpyHostToDevice));
 	}
 
 	void solve(SolverData * data, unsigned int p_size, unsigned int cons_size, float time_step, int iter_cnt)

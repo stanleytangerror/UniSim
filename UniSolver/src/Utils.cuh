@@ -1,56 +1,61 @@
 #ifndef Utils_cuh
 #define Utils_cuh
 
-#include "helper_cuda.h"
+//#include "helper_cuda.h"
 
 #include <cuda_runtime.h>
 #include <math_functions.h>
 #include <iostream>
 
 // add
-inline __device__ float3 operator + (const float3 & v, float s)
+__host__ __device__ inline float3 operator + (const float3 & v, float s)
 {
 	return make_float3(v.x + s, v.y + s, v.z + s);
 }
 
-inline __device__ float3 operator + (float s, const float3 & v)
+__host__ __device__ inline float3 operator + (float s, const float3 & v)
 {
 	return v + s;
 }
 
-inline __device__ float3 operator + (const float3 & v0, const float3 & v1)
+__host__ __device__ inline float3 operator + (const float3 & v0, const float3 & v1)
 {
 	return make_float3(v0.x + v1.x, v0.y + v1.y, v0.z + v1.z);
 }
 
 // negate
-inline __device__ float3 operator - (const float3 & v)
+__host__ __device__ inline float3 operator - (const float3 & v)
 {
 	return make_float3(-v.x, -v.y, -v.z);
 }
 
 // multiple
-inline __device__ float3 operator * (const float3 & v, float s)
+__host__ __device__ inline float3 operator * (const float3 & v, float s)
 {
 	return make_float3(v.x * s, v.y * s, v.z * s);
 }
 
-inline __device__ float3 operator * (float s, const float3 & v)
+__host__ __device__ inline float3 operator * (float s, const float3 & v)
 {
 	return v * s;
 }
 
-inline __device__ float3 operator * (const float3 & v0, const float3 & v1)
+__host__ __device__ inline float3 operator * (const float3 & v0, const float3 & v1)
 {
 	return make_float3(v0.x * v1.x, v0.y * v1.y, v0.z * v1.z);
 }
 
-inline __device__ float length(const float3 & v)
+__host__ __device__ inline float squared_length(const float3 & v)
 {
-	return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
+	return v.x * v.x + v.y * v.y + v.z * v.z;
 }
 
-inline __device__ unsigned int range_rand(int n, int seed)
+__host__ __device__ inline float length(const float3 & v)
+{
+	return sqrtf(squared_length(v));
+}
+
+__host__ __device__ inline unsigned int range_rand(int n, int seed)
 {
 	return (seed + 68857) % n;
 }

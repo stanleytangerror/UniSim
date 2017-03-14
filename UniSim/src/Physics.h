@@ -35,7 +35,7 @@ public:
 		uni::set_inv_masses(m_data.get(), inv_mass.data(), m_particle_size);
 	}
 	
-	void set_constraints(std::vector<uni::DistCons> & constraints)
+	void set_constraints(std::vector<uni::DistanceConstraint> & constraints)
 	{
 		uni::set_constraints(m_data.get(), constraints.data(), m_constraint_size);
 	}

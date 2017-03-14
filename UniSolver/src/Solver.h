@@ -5,7 +5,7 @@
 
 namespace uni
 {
-	struct DistCons
+	struct DistanceConstraint
 	{
 		int2 pid;
 		float d;
@@ -22,7 +22,7 @@ namespace uni
 		//int * act_p = nullptr;
 
 		//int con_size = 0;
-		DistCons * cons = nullptr;
+		DistanceConstraint * cons = nullptr;
 		//int * act_con = nullptr;
 	};
 
@@ -36,7 +36,7 @@ namespace uni
 
 	void set_inv_masses(SolverData * data, float * host_inv_m, unsigned int p_size);
 
-	void set_constraints(SolverData * data, DistCons * host_constraints, unsigned int constraint_size);
+	void set_constraints(SolverData * data, DistanceConstraint * host_constraints, unsigned int constraint_size);
 
 	void solve(SolverData * data, unsigned int p_size, unsigned int constraint_size, float time_step, int iter_cnt);
 

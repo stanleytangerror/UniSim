@@ -15,7 +15,7 @@ int main()
 		positions.push_back({ i * 10.0f, 0.0f, 0.0f });
 	}
 
-	std::vector<uni::DistCons> constraints;
+	std::vector<uni::DistanceConstraint> constraints;
 	
 	for (int i = 0; i < particle_size - 1; ++i)
 		constraints.push_back({ { i, i + 1 }, 9.9f });

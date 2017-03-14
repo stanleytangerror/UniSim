@@ -6,6 +6,8 @@
 #define GraphColoring_h
 
 #include "Solver.h"
+#include "helper_cuda.h"
+
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>

@@ -2,6 +2,8 @@
 #include "Solver.h"
 #include "Utils.cuh"
 #include "GraphColoring.cuh"
+#include "Collision.h"
+#include "helper_cuda.h"
 
 #include <vector>
 
@@ -17,11 +19,8 @@ namespace uni
 
 	int threadsPerBlock = 512;
 
-
-	/***********************************************************************************/
-
 	template <typename AdjItemType>
-	__global__ void adjTable_k(DistCons * cons, AdjItemType * adj_cons, int con_size)
+	__global__ void adjTable_k(DistanceConstraint * cons, AdjItemType * adj_cons, int con_size)
 	{
 		unsigned int cid = threadIdx.x + blockDim.x * blockIdx.x;
 		if (cid >= con_size) return;
@@ -59,7 +58,7 @@ namespace uni
 		p[pid] = x[pid] + v[pid] * time_step;
 	}
 
-	__global__ void projectConstraint_Gauss_k(float3 * x, float3 * p, float3 * v, float * inv_m, DistCons * cons, int * colors, unsigned int con_size, int gid)
+	__global__ void projectConstraint_Gauss_k(float3 * x, float3 * p, float3 * v, float * inv_m, DistanceConstraint * cons, int * colors, unsigned int con_size, int gid)
 	{
 		unsigned int cid = threadIdx.x + blockDim.x * blockIdx.x;
 		if (cid >= con_size) return;
@@ -156,6 +155,9 @@ namespace uni
 			}
 		}
 
+		CollideGridSpace collide_space{ { -100.0f, -100.0f, -100.0f },{ 100.0f, 100.0f, 100.0f }, 1.0f };
+		solveCollision(collide_space, data->p, data->inv_m, p_size, 0.6f, iter_cnt);
+
 		updateState_Gauss_k <<<p_blocks, p_threads>>>(data->x, data->p, data->v, data->inv_m, time_step, p_size);
 		getLastCudaError("Kernel execution failed");
 		checkCudaErrors(cudaDeviceSynchronize());
@@ -172,102 +174,6 @@ namespace uni
 		checkCudaErrors(cudaEventDestroy(stop));
 #endif
 	}
-
-
-	/***********************************************************************************/
-	
-	__global__ void freeRun_Jacobi_k(float3 * x, float3 * p, float3 * v, float * inv_m, float time_step, unsigned int p_size)
-	{
-		unsigned int pid = threadIdx.x + blockDim.x * blockDim.y * blockIdx.x;
-		if (pid >= p_size) return;
-
-		float3 force = { 0.0f, -0.10f, 0.0f };
-
-		float3 offset = inv_m[pid] * time_step * force;
-		v[pid] = v[pid] + offset;
-		p[pid] = x[pid] + v[pid] * time_step;
-	}
-
-	__global__ void projectConstraint_Jacobi_k(float3 * x, float3 * p, float3 * delta_p, int * p_con_cnt, float3 * v, float * inv_m, DistCons * cons, unsigned int con_size)
-	{
-		unsigned int cid = threadIdx.x + blockDim.x * blockIdx.x;
-		if (cid >= con_size) return;
-
-		int pid0 = cons[cid].pid.x;
-		int pid1 = cons[cid].pid.y;
-		float d = cons[cid].d;
-
-		float inv_m0 = inv_m[pid0];
-		float inv_m1 = inv_m[pid1];
-
-		if (inv_m0 < eps && inv_m1 < eps) return;
-
-		float3 p0 = p[pid0];
-		float3 p1 = p[pid1];
-
-		float dist = length(p0 + (-p1));
-		if (-eps < dist && dist < eps) return;
-		float delta_d = dist - d;
-
-		float3 tmp = 1.0f / (inv_m0 + inv_m1) * delta_d / dist * (p0 + (-p1));
-		float3 d_p0 = -inv_m0 * tmp;
-		float3 d_p1 = inv_m1 * tmp;
-
-		delta_p[pid0] = delta_p[pid0] + d_p0;
-		delta_p[pid1] = delta_p[pid1] + d_p1;
-
-		p_con_cnt[pid0] += 1;
-		p_con_cnt[pid1] += 1;
-	}
-
-	__global__ void updateState_Jacobi_k(float3 * x, float3 * p, float3 * delta_p, int * p_con_cnt, float3 * v, float * inv_m, float time_step, unsigned int p_size)
-	{
-		unsigned int pid = threadIdx.x + blockDim.x * blockIdx.x;
-		if (pid >= p_size) return;
-		
-		float w = 1.3f;
-		int cnt = p_con_cnt[pid];
-		if (cnt <= 0) return;
-		p[pid] = p[pid] + delta_p[pid] * (1.0f / cnt) * w;
-		v[pid] = (p[pid] + (-x[pid])) * (1.0f / time_step);
-		x[pid] = p[pid];
-	}
-
-	void solve_Jacobi(SolverData * data, unsigned int p_size, unsigned int cons_size, float time_step, int iter_cnt)
-	{
-		static float3 * delta_p = nullptr;
-		static int * p_con_cnt = nullptr;
-
-		if (delta_p == nullptr)
-			checkCudaErrors(cudaMalloc((void**)&delta_p, p_size * sizeof(float3)));
-		if (p_con_cnt == nullptr)
-			checkCudaErrors(cudaMalloc((void**)&p_con_cnt, p_size * sizeof(int)));
-
-		checkCudaErrors(cudaMemset(delta_p, 0, p_size * sizeof(float3)));
-		checkCudaErrors(cudaMemset(p_con_cnt, 0, p_size * sizeof(int)));
-
-		dim3 p_blocks((p_size + 1023) / 1024);
-		dim3 p_threads(1024);
-
-		dim3 con_blocks((cons_size + threadsPerBlock - 1) / threadsPerBlock);
-		dim3 con_threads(threadsPerBlock);
-
-		freeRun_Jacobi_k << <con_blocks, p_threads >> >(data->x, data->p, data->v, data->inv_m, time_step, p_size);
-		getLastCudaError("Kernel execution failed");
-		checkCudaErrors(cudaDeviceSynchronize());
-
-		for (int i = 0; i < iter_cnt; ++i)
-		{
-			projectConstraint_Jacobi_k << <con_blocks, con_threads >> >(data->x, data->p, delta_p, p_con_cnt, data->v, data->inv_m, data->cons, cons_size);
-			getLastCudaError("Kernel execution failed");
-			checkCudaErrors(cudaDeviceSynchronize());
-		}
-
-		updateState_Jacobi_k << <con_blocks, p_threads >> >(data->x, data->p, delta_p, p_con_cnt, data->v, data->inv_m, time_step, p_size);
-		getLastCudaError("Kernel execution failed");
-		checkCudaErrors(cudaDeviceSynchronize());
-	}
-
 
 }
 
