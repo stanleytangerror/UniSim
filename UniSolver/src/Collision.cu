@@ -152,7 +152,8 @@ namespace uni
 		//checkCudaErrors(cudaMalloc((void **)& space, sizeof(CollideGridSpace)));
 
 		checkCudaErrors(cudaMemset(delta_x, 0, p_size * sizeof(float3)));
-		checkCudaErrors(cudaMemcpy(ceil_ranges, arrn1.data(), ceil_count * sizeof(int2), cudaMemcpyHostToDevice));
+		//checkCudaErrors(cudaMemcpy(ceil_ranges, arrn1.data(), ceil_count * sizeof(int2), cudaMemcpyHostToDevice));
+		checkCudaErrors(cudaMemset(ceil_ranges, -1, ceil_count * sizeof(int2)));
 		//checkCudaErrors(cudaMemcpy(space, &host_space, sizeof(int2), cudaMemcpyHostToDevice));
 
 		int threadsPerBlock = 1024;

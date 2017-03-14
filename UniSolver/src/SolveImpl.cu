@@ -121,8 +121,6 @@ namespace uni
 	void solve_Gauss(SolverData * data, unsigned int p_size, unsigned int cons_size, float time_step, int iter_cnt)
 	{
 		static int * colors = nullptr;
-		if (colors == nullptr)
-			cudaMalloc((void **)&colors, cons_size * sizeof(int));
 
 #ifdef PROFILE_CUDA
 		cudaEvent_t start, stop;
@@ -143,8 +141,11 @@ namespace uni
 		getLastCudaError("Kernel execution failed");
 		checkCudaErrors(cudaDeviceSynchronize());
 
-		callGraphColoring_Gauss<16>(data, colors, cons_size);
-
+		if (colors == nullptr)
+		{
+			cudaMalloc((void **)&colors, cons_size * sizeof(int));
+			callGraphColoring_Gauss<16>(data, colors, cons_size);
+		}
 		for (int i = 0; i < iter_cnt; ++i)
 		{
 			for (int gid = 0; gid < 16; ++gid)
@@ -155,8 +156,8 @@ namespace uni
 			}
 		}
 
-		CollideGridSpace collide_space{ { -100.0f, -100.0f, -100.0f },{ 100.0f, 100.0f, 100.0f }, 1.0f };
-		solveCollision(collide_space, data->p, data->inv_m, p_size, 0.6f, iter_cnt);
+		CollideGridSpace collide_space{ { -50.0f, -50.0f, -50.0f },{ 50.0f, 50.0f, 50.0f }, 0.5f };
+		solveCollision(collide_space, data->p, data->inv_m, p_size, 0.4f, 2.0f * iter_cnt);
 
 		updateState_Gauss_k <<<p_blocks, p_threads>>>(data->x, data->p, data->v, data->inv_m, time_step, p_size);
 		getLastCudaError("Kernel execution failed");

@@ -133,16 +133,25 @@ int main()
 
 	FreeCamera camera({ 0.0f, 0.0f, 5.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, -1.0f }, float(width) / float(height));
 
+	//ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ColumnsClothesCouple/Cloth06.obj");
 	//ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/Basic Geometries/SquareCloth_50m50/Clothes.obj");
 	ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan01/Cloth.obj");
+	
+	//ResourceManager::LoadMeshes("human", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ColumnsClothesCouple/Columns.obj");
 	//ResourceManager::LoadMeshes("human", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan01/Man.obj");
+	
 	ResourceManager::LoadShader("rigid_body", "src/GLSL/rigid_body_vs.glsl", "src/GLSL/rigid_body_frag.glsl", "");
 
 	auto * clothmesh = ResourceManager::GetMesh("cloth")[0];
 	//auto * humanmesh = ResourceManager::GetMesh("human")[0];
 	auto * shader = ResourceManager::GetShader("rigid_body");
 
-	//clothmesh->remesh(0.1f, 3);
+	//clothmesh->affineTransform({
+	//	0.64f, 0.0f, 0.0f, 0.0f,
+	//	0.0f, 0.64f, 0.0f, 0.0f,
+	//	0.0f, 0.0f, 0.64f, 0.0f
+	//});
+	clothmesh->remesh(0.5f, 4);
 	clothmesh->computeNormals();
 	//humanmesh->remesh(0.1f, 3);
 	//humanmesh->computeNormals();

@@ -12,6 +12,7 @@ private:
 	int m_particle_size;
 	int m_constraint_size;
 	int m_iter_cnt;
+
 public:
 	PhysicsSolver(int p_size, int con_size, int iter_cnt) :
 		m_data(new uni::SolverData, [](uni::SolverData * ptr) { uni::free_cuda_memory(ptr); }),
