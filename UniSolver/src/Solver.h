@@ -13,17 +13,14 @@ namespace uni
 
 	struct SolverData
 	{
-		//int p_size = 0;
-
 		float3 * p = nullptr;
 		float3 * x = nullptr;
 		float3 * v = nullptr;
 		float * inv_m = nullptr;
-		//int * act_p = nullptr;
+		int * phase = nullptr;
+		//float max_radius;
 
-		//int con_size = 0;
 		DistanceConstraint * cons = nullptr;
-		//int * act_con = nullptr;
 	};
 
 	void initial_device();
@@ -35,6 +32,8 @@ namespace uni
 	void set_velocities(SolverData * data, float3 * host_velocities, unsigned int p_size);
 
 	void set_inv_masses(SolverData * data, float * host_inv_m, unsigned int p_size);
+
+	void set_phases(SolverData * data, int * host_phases, unsigned int p_size);
 
 	void set_constraints(SolverData * data, DistanceConstraint * host_constraints, unsigned int constraint_size);
 

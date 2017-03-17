@@ -13,31 +13,6 @@ namespace uni
 {
 	__device__ float eps = 1e-20f;
 
-	namespace Slot
-	{
-		__device__ unsigned int ceil2Slot(int range, int3 const & id)
-		{
-			unsigned int res = 3;
-			res = id.x + 0x9e3779b9 + (res << 6) + (res >> 2);
-			res = id.y + 0x9e3779b9 + (res << 6) + (res >> 2);
-			res = id.z + 0x9e3779b9 + (res << 6) + (res >> 2);
-			return res % range;
-		}
-
-		__global__ void getPSlot_k(CollideGridSpace const & space, int slot_count, float3 * x, int * p_slots, int * p_ids, unsigned int p_size)
-		{
-			unsigned int pid = threadIdx.x + blockDim.x * blockIdx.x;
-			if (pid >= p_size) return;
-			p_ids[pid] = pid;
-
-			float3 offset = x[pid] + (-space.min_pos);
-			int3 ceil_id = { int(offset.x / space.ceil_size),int(offset.y / space.ceil_size),int(offset.z / space.ceil_size) };
-
-			unsigned int slot_id = ceil2Slot(slot_count, ceil_id);
-			p_slots[pid] = slot_id;
-		}
-	}
-
 	__device__ unsigned int offsetToCeil(CollideGridSpace const & space, int3 const & ceil_id)
 	{
 		return ceil_id.x * space.grid_size.y * space.grid_size.z + ceil_id.y * space.grid_size.z + ceil_id.z;
@@ -92,7 +67,7 @@ namespace uni
 	}
 
 	__global__ void projectCollision_Jacobi_k(CollideGridSpace space, int2 * ceil_ranges, int ceil_count, int * par_ids,
-		float3 * pos, float3 * delta_pos, float * inv_m, float min_dist, unsigned int p_size)
+		float3 * pos, float3 * delta_pos, float * inv_m, int * phases, float min_dist, unsigned int p_size)
 	{
 		unsigned int pid = threadIdx.x + blockDim.x * blockIdx.x;
 		if (pid >= p_size) return;
@@ -113,14 +88,14 @@ namespace uni
 			for (int i = par_start; i <= par_end; ++i)
 			{
 				int other_pid = par_ids[i];
-				if (pid == other_pid) continue;
+				if (pid == other_pid || phases[pid] == phases[other_pid]) continue;
 				bool collide = solvePWiseCollideConstraint(delta_pos[pid], pos[pid], pos[other_pid], inv_m[pid], inv_m[other_pid], min_dist);
 				if (collide) count += 1;
 			}
 		}
 		if (count > 0)
 		{
-			delta_pos[pid] = delta_pos[pid] * (1.0f / count);
+			delta_pos[pid] = delta_pos[pid] * (1.0f / float(count));
 		}
 	}
 
@@ -132,14 +107,14 @@ namespace uni
 		pos[pid] = pos[pid] + delta_pos[pid];
 	}
 
-	void solveCollision(CollideGridSpace const & space, float3 * x, float * inv_m, unsigned int p_size, float min_dist, int iter_count)
+	void solveCollision(CollideGridSpace const & space, float3 * x, float * inv_m, int * phases, unsigned int p_size, float min_dist, int iter_count)
 	{
 		static int * p_ceils = nullptr;
 		static int * par_ids = nullptr;
 		static int2 * ceil_ranges = nullptr;
 		static int ceil_count = space.grid_size.x * space.grid_size.y * space.grid_size.z;
 		static float3 * delta_x = nullptr;
-		static std::vector<int2> const arrn1(ceil_count, { -1, -1 });
+		//static std::vector<int2> const arrn1(ceil_count, { -1, -1 });
 		
 		if (p_ceils == nullptr)
 			checkCudaErrors(cudaMalloc((void **)& p_ceils, p_size * sizeof(int)));
@@ -185,7 +160,7 @@ namespace uni
 
 		for (int i = 0; i < iter_count; ++i)
 		{
-			projectCollision_Jacobi_k << <p_blocks, p_threads >> >(space, ceil_ranges, ceil_count, par_ids, x, delta_x, inv_m, min_dist, p_size);
+			projectCollision_Jacobi_k << <p_blocks, p_threads >> >(space, ceil_ranges, ceil_count, par_ids, x, delta_x, inv_m, phases, min_dist, p_size);
 			getLastCudaError("Kernel execution failed");
 		
 			udpate_Jacobi_k << <p_blocks, p_threads >> >(x, delta_x, p_size);

@@ -141,6 +141,9 @@ namespace uni
 		getLastCudaError("Kernel execution failed");
 		checkCudaErrors(cudaDeviceSynchronize());
 
+		CollideGridSpace collide_space{ { -50.0f, -50.0f, -50.0f },{ 50.0f, 50.0f, 50.0f }, 0.5f };
+		solveCollision(collide_space, data->p, data->inv_m, data->phase, p_size, 0.2f, 2 * iter_cnt);
+
 		if (colors == nullptr)
 		{
 			cudaMalloc((void **)&colors, cons_size * sizeof(int));
@@ -155,9 +158,6 @@ namespace uni
 				checkCudaErrors(cudaDeviceSynchronize());
 			}
 		}
-
-		CollideGridSpace collide_space{ { -50.0f, -50.0f, -50.0f },{ 50.0f, 50.0f, 50.0f }, 0.5f };
-		solveCollision(collide_space, data->p, data->inv_m, p_size, 0.4f, 2.0f * iter_cnt);
 
 		updateState_Gauss_k <<<p_blocks, p_threads>>>(data->x, data->p, data->v, data->inv_m, time_step, p_size);
 		getLastCudaError("Kernel execution failed");

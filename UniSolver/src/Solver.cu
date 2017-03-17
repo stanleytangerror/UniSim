@@ -31,6 +31,7 @@ namespace uni
 		checkCudaErrors(cudaMalloc((void**)&data->x, p_size * sizeof(float3)));
 		checkCudaErrors(cudaMalloc((void**)&data->v, p_size * sizeof(float3)));
 		checkCudaErrors(cudaMalloc((void**)&data->inv_m, p_size * sizeof(float)));
+		checkCudaErrors(cudaMalloc((void**)&data->phase, p_size * sizeof(int)));
 		checkCudaErrors(cudaMalloc((void**)&data->cons, constraint_size * sizeof(DistanceConstraint)));
 	}
 
@@ -48,6 +49,11 @@ namespace uni
 	void set_inv_masses(SolverData * data, float * host_inv_m, unsigned int p_size)
 	{
 		checkCudaErrors(cudaMemcpy(data->inv_m, host_inv_m, p_size * sizeof(float), cudaMemcpyHostToDevice));
+	}
+
+	void set_phases(SolverData * data, int * host_phases, unsigned int p_size)
+	{
+		checkCudaErrors(cudaMemcpy(data->phase, host_phases, p_size * sizeof(int), cudaMemcpyHostToDevice));
 	}
 
 	void set_constraints(SolverData * data, DistanceConstraint * host_constraints, unsigned int constraint_size)
@@ -74,6 +80,7 @@ namespace uni
 		checkCudaErrors(cudaFree(data->x));
 		checkCudaErrors(cudaFree(data->v));
 		checkCudaErrors(cudaFree(data->inv_m));
+		checkCudaErrors(cudaFree(data->phase));
 		checkCudaErrors(cudaFree(data->cons));
 	}
 

@@ -96,7 +96,7 @@ public:
 		}
 
 		//positions[10] = { positions[10].x + 0.01f, 0.0f, 0.0f };
-		inv_masses[10] = 0.0f;
+		inv_masses[100] = 0.0f;
 
 		m_runner->set_velocities(velocities);
 		m_runner->set_inv_masses(inv_masses);
@@ -139,6 +139,7 @@ int main()
 	
 	//ResourceManager::LoadMeshes("human", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ColumnsClothesCouple/Columns.obj");
 	//ResourceManager::LoadMeshes("human", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan01/Man.obj");
+	//ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan01/Man.obj");
 	
 	ResourceManager::LoadShader("rigid_body", "src/GLSL/rigid_body_vs.glsl", "src/GLSL/rigid_body_frag.glsl", "");
 
