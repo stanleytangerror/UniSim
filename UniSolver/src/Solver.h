@@ -13,12 +13,13 @@ namespace uni
 
 	struct SolverData
 	{
+		float max_radius;
+		
 		float3 * p = nullptr;
 		float3 * x = nullptr;
 		float3 * v = nullptr;
 		float * inv_m = nullptr;
 		int * phase = nullptr;
-		//float max_radius;
 
 		DistanceConstraint * cons = nullptr;
 	};

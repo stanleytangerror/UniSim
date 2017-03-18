@@ -27,24 +27,28 @@ class RenderActor : public Actor
 {
 private:
 	FreeCamera * camera;
-	std::vector<std::unique_ptr<SurMeshObjRenderer>> renders;
+	std::vector<std::pair<std::unique_ptr<SurMeshObjRenderer>, Vec3f>> renders;
 
 public:
-	RenderActor(FreeCamera * camera, std::vector<SurfaceMeshObject*> meshes, Shader * shader) :
+	RenderActor(FreeCamera * camera, std::vector<std::pair<SurfaceMeshObject*, Vec3f>> meshes, Shader * shader) :
 		camera(camera)
 	{
-		for (auto * m : meshes)
+		for (auto & p : meshes)
 		{
-			renders.push_back(std::make_unique<SurMeshObjRenderer>(m, shader, camera));
+			auto * meshptr = p.first;
+			auto & meshcolor = p.second;
+			renders.push_back({ std::make_unique<SurMeshObjRenderer>(meshptr, shader, camera), meshcolor });
 		}
 	}
 
 	virtual void tick(float deltaTime) override 
 	{
-		for (auto & r : renders)
+		for (auto & p : renders)
 		{
-			r->update();
-			r->draw(0.5f, 0.3f, 0.6f);
+			auto & render = p.first;
+			auto color = p.second;
+			render->update();
+			render->draw(color.x(), color.y(), color.z());
 		}
 	}
 
@@ -53,38 +57,68 @@ public:
 class PhysicsActor : public Actor
 {
 private:
+	struct MeshPhyInfo
+	{
+		int phase;
+		std::unordered_map<Veridx, int> vid2index;
+		std::pair<int, int> particle_index_range;
+		std::pair<int, int> constraint_index_range;
+		bool need_write_position;
+		bool need_read_position;
+	};
+
 	std::unique_ptr<PhysicsSolver> m_runner;
-	SurfaceMeshObject * m_meshobj;
+	std::vector<std::pair<SurfaceMeshObject *, MeshPhyInfo>> m_meshobjs;
 
-	std::unordered_map<Veridx, int> vid2index;
+	int m_particle_size;
+	std::vector<float3> m_positions;
+	std::vector<float3> m_velocities;
+	std::vector<float> m_inv_masses;
+	std::vector<int> m_phases;
 
-	std::vector<float3> positions;
-	std::vector<float3> velocities;
-	std::vector<float> inv_masses;
-	std::vector<int> active_particles;
-	std::vector<uni::DistanceConstraint> constraints;
+	int m_constraint_size;
+	std::vector<uni::DistanceConstraint> m_constraints;
+
+	float m_max_radius;
+	int m_iter_count;
 
 public:
-	PhysicsActor(SurfaceMeshObject * meshobj, int iter_cnt) :
-		m_meshobj(meshobj), m_runner(nullptr)
+	PhysicsActor(float max_radius, int iter_cnt) :
+		m_runner(nullptr), m_particle_size(0), m_constraint_size(0),
+		m_max_radius(max_radius), m_iter_count(iter_cnt) {}
+
+	void addDynamicMesh(SurfaceMeshObject * meshobj, int phase, float3 velocity, float inv_mass)
 	{
-		auto & mesh = m_meshobj->getMesh();
+		auto & mesh = meshobj->getMesh();
 		int p_size = mesh.number_of_vertices();
 		int con_size = mesh.number_of_edges();
 
-		m_runner.reset(new PhysicsSolver(p_size, con_size, iter_cnt));
+		m_meshobjs.push_back({ meshobj,
+			MeshPhyInfo{ phase, {},
+				{ m_particle_size, m_particle_size + p_size },
+				{ m_constraint_size, m_constraint_size + con_size },
+				false, true } 
+		});
 
-		positions.reserve(p_size);
-		velocities.assign(p_size, { 0.0f, 0.0f, 0.0f });
-		active_particles.assign(p_size, 1);
-		inv_masses.assign(p_size, 1.0f);
-		constraints.reserve(mesh.number_of_edges());
+		auto & mesh_info = m_meshobjs.back().second;
+		auto & vid2index = mesh_info.vid2index;
 
-		int p_cnt = 0;
+		m_particle_size += p_size;
+		m_positions.reserve(m_particle_size);
+		m_velocities.reserve(m_particle_size);
+		m_inv_masses.reserve(m_particle_size);
+		m_phases.reserve(m_particle_size);
+
+		m_constraint_size += con_size;
+		m_constraints.reserve(m_constraint_size);
+
 		for (auto const & vid : mesh.vertices())
 		{
-			vid2index[vid] = p_cnt++;
-			positions.push_back({ mesh.point(vid).x(),mesh.point(vid).y(),mesh.point(vid).z() });
+			vid2index[vid] = m_positions.size();
+			m_positions.push_back({ mesh.point(vid).x(),mesh.point(vid).y(),mesh.point(vid).z() });
+			m_velocities.push_back(velocity);
+			m_inv_masses.push_back(inv_mass);
+			m_phases.push_back(phase);
 		}
 
 		for (auto const & eid : mesh.edges())
@@ -92,35 +126,96 @@ public:
 			auto vid0 = mesh.vertex(eid, 0);
 			auto vid1 = mesh.vertex(eid, 1);
 			float d = std::sqrt((mesh.point(vid0) - mesh.point(vid1)).squared_length());
-			constraints.push_back({ { vid2index[vid0], vid2index[vid1] }, d });
+			m_constraints.push_back({ { vid2index[vid0], vid2index[vid1] }, d });
 		}
-
-		//positions[10] = { positions[10].x + 0.01f, 0.0f, 0.0f };
-		inv_masses[100] = 0.0f;
-
-		m_runner->set_velocities(velocities);
-		m_runner->set_inv_masses(inv_masses);
-		m_runner->set_constraints(constraints);
 	}
 
-	void write_back()
+	void addKinematicMesh(SurfaceMeshObject * meshobj, int phase)
 	{
-		auto & mesh = m_meshobj->getMesh();
-		for (auto const & p : vid2index)
+		auto & mesh = meshobj->getMesh();
+		int p_size = mesh.number_of_vertices();
+
+		m_meshobjs.push_back({ meshobj,
+			MeshPhyInfo{ phase,{},
+			{ m_particle_size, m_particle_size + p_size },
+			{ m_constraint_size, m_constraint_size },
+			true, false }
+		});
+
+		auto & mesh_info = m_meshobjs.back().second;
+		auto & vid2index = mesh_info.vid2index;
+
+		m_particle_size += p_size;
+		m_positions.reserve(m_particle_size);
+		m_velocities.reserve(m_particle_size);
+		m_inv_masses.reserve(m_particle_size);
+		m_phases.reserve(m_particle_size);
+
+		for (auto const & vid : mesh.vertices())
 		{
-			auto vid = p.first;
-			auto idx = p.second;
-			mesh.point(vid) = { positions[idx].x, positions[idx].y, positions[idx].z };
+			vid2index[vid] = m_positions.size();
+			m_positions.push_back({ mesh.point(vid).x(),mesh.point(vid).y(),mesh.point(vid).z() });
+			m_velocities.push_back({ 0.0f, 0.0f, 0.0f });
+			m_inv_masses.push_back(0.0f);
+			m_phases.push_back(phase);
+		}
+	}
+
+	void getReady()
+	{
+		m_runner.reset(new PhysicsSolver(m_particle_size, m_constraint_size, m_max_radius, m_iter_count));
+
+		m_runner->set_velocities(m_velocities);
+		m_runner->set_inv_masses(m_inv_masses);
+		m_runner->set_phases(m_phases);
+		m_runner->set_constraints(m_constraints);
+	}
+
+	void preTick()
+	{
+		for (auto & p : m_meshobjs)
+		{
+			auto & mesh = p.first->getMesh();
+			auto & mesh_info = p.second;
+			if (mesh_info.need_write_position)
+			{
+				for (auto const & p : mesh_info.vid2index)
+				{
+					auto vid = p.first;
+					auto idx = p.second;
+					m_positions[idx] = { mesh.point(vid).x(), mesh.point(vid).y(), mesh.point(vid).z() };
+				}
+			}
+		}
+	
+		m_runner->set_positions(m_positions);
+	}
+
+	void postTick()
+	{
+		m_runner->get_positions(m_positions);
+	
+		for (auto & p : m_meshobjs)
+		{
+			auto & mesh = p.first->getMesh();
+			auto & mesh_info = p.second;
+			if (mesh_info.need_read_position)
+			{
+				for (auto const & p : mesh_info.vid2index)
+				{
+					auto vid = p.first;
+					auto idx = p.second;
+					mesh.point(vid) = { m_positions[idx].x, m_positions[idx].y, m_positions[idx].z };
+				}
+			}
 		}
 	}
 
 	virtual void tick(float deltaTime) override
 	{
-		m_runner->set_positions(positions);
-
+		preTick();
 		m_runner->tick(deltaTime);
-		m_runner->get_states(positions);
-		write_back();
+		postTick();
 	}
 
 };
@@ -138,13 +233,13 @@ int main()
 	ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan01/Cloth.obj");
 	
 	//ResourceManager::LoadMeshes("human", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ColumnsClothesCouple/Columns.obj");
-	//ResourceManager::LoadMeshes("human", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan01/Man.obj");
+	ResourceManager::LoadMeshes("human", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan01/Man.obj");
 	//ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan01/Man.obj");
 	
 	ResourceManager::LoadShader("rigid_body", "src/GLSL/rigid_body_vs.glsl", "src/GLSL/rigid_body_frag.glsl", "");
 
 	auto * clothmesh = ResourceManager::GetMesh("cloth")[0];
-	//auto * humanmesh = ResourceManager::GetMesh("human")[0];
+	auto * humanmesh = ResourceManager::GetMesh("human")[0];
 	auto * shader = ResourceManager::GetShader("rigid_body");
 
 	//clothmesh->affineTransform({
@@ -155,13 +250,16 @@ int main()
 	clothmesh->remesh(0.5f, 4);
 	clothmesh->computeNormals();
 	//humanmesh->remesh(0.1f, 3);
-	//humanmesh->computeNormals();
+	humanmesh->computeNormals();
 
 	FreeCameraActor camera_actor{ &camera };
 	ThingActor cloth_actor{ clothmesh };
 	//ThingActor human_actor{ clothmesh };
-	RenderActor render_actor{ &camera, { clothmesh }, shader };
-	PhysicsActor physics_actor{ clothmesh, 5 };
+	RenderActor render_actor{ &camera, { { clothmesh,{0.4f, 0.4f, 0.9f} },{ humanmesh,{0.6f, 0.6f, 0.6f} } }, shader };
+	PhysicsActor physics_actor{ 0.15f, 5 };
+	physics_actor.addDynamicMesh(clothmesh, 1, { 0.0f, 0.0f, 0.0f }, 1.0f);
+	physics_actor.addKinematicMesh(humanmesh, 2);
+	physics_actor.getReady();
 
 	auto inputHandler = std::make_unique<InputHandler>();
 	auto commands = std::make_unique<CommandQueue>();

@@ -13,6 +13,8 @@
 #include <device_atomic_functions.h>
 #include <device_functions.h>
 
+//#define DEBUG_SOLVER_IMPLEMENTATION
+
 namespace uni
 {
 	__device__ float eps = 1e-20f;
@@ -51,7 +53,7 @@ namespace uni
 		unsigned int pid = threadIdx.x + blockDim.x * blockIdx.x;
 		if (pid >= p_size) return;
 
-		float3 force = { 0.0f, -0.010f, 0.0f };
+		float3 force = { 0.0f, -0.00f, 0.0f };
 
 		float3 offset = 0.5f * inv_m[pid] * time_step * force;
 		v[pid] = v[pid] + offset;
@@ -137,28 +139,54 @@ namespace uni
 		dim3 con_blocks((cons_size + threadsPerBlock - 1) / threadsPerBlock);
 		dim3 con_threads(threadsPerBlock);
 
+#ifdef DEBUG_SOLVER_IMPLEMENTATION
+		std::cout << "start free run" << std::endl;
+#endif
+
 		freeRun_Gauss_k <<<p_blocks, p_threads>>> (data->x, data->p, data->v, data->inv_m, time_step, p_size);
 		getLastCudaError("Kernel execution failed");
 		checkCudaErrors(cudaDeviceSynchronize());
 
-		CollideGridSpace collide_space{ { -50.0f, -50.0f, -50.0f },{ 50.0f, 50.0f, 50.0f }, 0.5f };
-		solveCollision(collide_space, data->p, data->inv_m, data->phase, p_size, 0.2f, 2 * iter_cnt);
+#ifdef DEBUG_SOLVER_IMPLEMENTATION
+		std::cout << "start solve collision" << std::endl;
+#endif
+
+		CollideGridSpace collide_space{ { -30.0f, -30.0f, -30.0f },{ 30.0f, 30.0f, 30.0f }, 2 * data->max_radius };
+		solveCollision(collide_space, data->p, data->inv_m, data->phase, p_size, 2.0f * data->max_radius, 2 * iter_cnt);
 
 		if (colors == nullptr)
 		{
+
+#ifdef DEBUG_SOLVER_IMPLEMENTATION
+			std::cout << "start graph coloring" << std::endl;
+#endif
+
 			cudaMalloc((void **)&colors, cons_size * sizeof(int));
 			callGraphColoring_Gauss<16>(data, colors, cons_size);
 		}
+
+
 		for (int i = 0; i < iter_cnt; ++i)
 		{
+#ifdef DEBUG_SOLVER_IMPLEMENTATION
+			std::cout << "start solve iterate no." << i << std::endl;
+#endif
 			for (int gid = 0; gid < 16; ++gid)
 			{
+
+#ifdef DEBUG_SOLVER_IMPLEMENTATION
+				std::cout << "start solve iterate no." << i << " group no." << gid << std::endl;
+#endif
+
 				projectConstraint_Gauss_k << <con_blocks, con_threads >> >(data->x, data->p, data->v, data->inv_m, data->cons, colors, cons_size, gid);
 				getLastCudaError("Kernel execution failed");
 				checkCudaErrors(cudaDeviceSynchronize());
 			}
 		}
 
+#ifdef DEBUG_SOLVER_IMPLEMENTATION
+		std::cout << "start update states" << std::endl;
+#endif
 		updateState_Gauss_k <<<p_blocks, p_threads>>>(data->x, data->p, data->v, data->inv_m, time_step, p_size);
 		getLastCudaError("Kernel execution failed");
 		checkCudaErrors(cudaDeviceSynchronize());

@@ -43,7 +43,8 @@ namespace uni
 
 		float3 offset = x[pid] + (-space.min_pos);
 		int3 ceil_id = { int(offset.x / space.ceil_size),int(offset.y / space.ceil_size),int(offset.z / space.ceil_size) };
-		if (ceil_id.x >= space.grid_size.x || ceil_id.y >= space.grid_size.y || ceil_id.z >= space.grid_size.z)
+		if (ceil_id.x >= space.grid_size.x || ceil_id.y >= space.grid_size.y || ceil_id.z >= space.grid_size.z
+			|| ceil_id.x < 0 || ceil_id.y < 0 || ceil_id.z < 0)
 		{
 			p_ceils[pid] = -1;
 			return;
@@ -88,7 +89,8 @@ namespace uni
 			for (int i = par_start; i <= par_end; ++i)
 			{
 				int other_pid = par_ids[i];
-				if (pid == other_pid || phases[pid] == phases[other_pid]) continue;
+				if (pid == other_pid) continue;
+				//if (phases[pid] == phases[other_pid]) continue;
 				bool collide = solvePWiseCollideConstraint(delta_pos[pid], pos[pid], pos[other_pid], inv_m[pid], inv_m[other_pid], min_dist);
 				if (collide) count += 1;
 			}

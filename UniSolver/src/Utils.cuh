@@ -55,9 +55,11 @@ __host__ __device__ inline float length(const float3 & v)
 	return sqrtf(squared_length(v));
 }
 
-__host__ __device__ inline unsigned int range_rand(int n, int seed)
+__host__ __device__ inline unsigned int range_hash(unsigned int seed, unsigned int range)
 {
-	return (seed + 68857) % n;
+	return (seed + 68857) % range;
+	//unsigned int hashCode = seed ^ (seed >> 20) ^ (seed >> 12);
+	//return (seed ^ (seed >> 7) ^ (seed >> 4)) % range;
 }
 
 

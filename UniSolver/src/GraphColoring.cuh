@@ -12,6 +12,10 @@
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <vector>
+#include <chrono>
+#include <random>
+
+//#define DEBUG_GRAPH_COLORING
 
 namespace uni
 {
@@ -52,15 +56,16 @@ namespace uni
 	}
 
 	template <typename PaletteType>
-	__global__ void tentativeColoring_k(int * is_colored, PaletteType * palettes, int * colors, int iter_no, int node_size)
+	__global__ void tentativeColoring_k(int * is_colored, PaletteType * palettes, int * colors, unsigned int rand_input, int node_size)
 	{
 		unsigned int cid = threadIdx.x + blockDim.x * blockIdx.x;
 		if (cid >= node_size) return;
 		if (is_colored[cid] == 1) return;
 
-		//unsigned int no = (cid + iter_no + 68857) % int(palettes[cid].max_size * 0.94f);
-		unsigned int seed = range_rand(97, cid + iter_no);
-		unsigned int no = range_rand(palettes[cid].max_size * 0.94f, seed);
+		//unsigned int no = (cid + rand_input + 68857) % int(palettes[cid].max_size * 0.94f);
+		unsigned int seed = range_hash(cid + rand_input, 97);
+		unsigned int no = range_hash(seed, palettes[cid].max_size * 0.94f);
+		//unsigned int no = range_hash(rand_input, palettes[cid].max_size * 0.94f);
 		int cnt = 0;
 		for (int i = 0; ; i = (i + 1) % palettes[cid].valid_size)
 		{
@@ -133,6 +138,7 @@ namespace uni
 		static Palette<MaxDegree> * palettes = nullptr;
 		static int * is_colored = nullptr;
 		static int * is_colored_cache = nullptr;
+
 		if (palettes == nullptr)
 			cudaMalloc((void **)&palettes, node_size * sizeof(Palette<MaxDegree>));
 		if (is_colored == nullptr)
@@ -148,9 +154,10 @@ namespace uni
 		checkCudaErrors(cudaMemset(is_colored_cache, 0, con_blocks.x * sizeof(int)));
 		std::vector<int> host_is_colored(node_size, 0);
 
-#ifdef DEBUG_CUDA		
-		std::cout << "pre coloring process" << std::endl;
+#ifdef DEBUG_GRAPH_COLORING
+		std::cout << "start initial graph color" << std::endl;
 #endif
+
 		checkCudaErrors(cudaDeviceSynchronize());
 		preColoring_k<Palette<MaxDegree>> << <con_blocks, con_threads >> >(is_colored, palettes, node_size);
 		getLastCudaError("Kernel execution failed");
@@ -158,12 +165,19 @@ namespace uni
 
 		int iter_no = 0;
 		bool all_colored = false;
+
+		std::random_device rd;
+		std::mt19937 mt(rd());
+		std::uniform_int_distribution<unsigned int> dist(0, 97);
+		
 		while (all_colored == false)
 		{
-#ifdef DEBUG_CUDA		
-			std::cout << "iterate coloring process" << std::endl;
+#ifdef DEBUG_GRAPH_COLORING		
+			std::cout << "start graph coloring iterate no." << iter_no << std::endl;
 #endif
-			tentativeColoring_k<Palette<MaxDegree>> << <con_blocks, con_threads >> >(is_colored, palettes, node_colors, iter_no, node_size);
+			unsigned int rand_seed = dist(mt);
+			//std::cout << rand_seed << std::endl;
+			tentativeColoring_k<Palette<MaxDegree>> << <con_blocks, con_threads >> >(is_colored, palettes, node_colors, rand_seed, node_size);
 			getLastCudaError("Kernel execution failed");
 			checkCudaErrors(cudaDeviceSynchronize());
 
@@ -186,31 +200,27 @@ namespace uni
 				}
 			}
 
-#ifdef DEBUG_GRAPH_COLORING_REDUCE
-			int uncolored_count = cons_size;
-			std::vector<int> host_is_colored(con_blocks.x, 0);
-			reduce_k << < con_blocks, con_threads, con_threads.x * sizeof(int) >> > (is_colored, is_colored_cache, cons_size);
-			getLastCudaError("Kernel execution failed");
-			checkCudaErrors(cudaDeviceSynchronize());
-
-			checkCudaErrors(cudaMemcpy(host_is_colored.data(), is_colored_cache, con_blocks.x * sizeof(int), cudaMemcpyDeviceToHost));
-			uncolored_count = cons_size;
-			for (int i = 0; i < con_blocks.x; ++i)
-				uncolored_count -= host_is_colored[i];
-#endif
+//#ifdef DEBUG_GRAPH_COLORING_REDUCE
+//			int uncolored_count = cons_size;
+//			std::vector<int> host_is_colored(con_blocks.x, 0);
+//			reduce_k << < con_blocks, con_threads, con_threads.x * sizeof(int) >> > (is_colored, is_colored_cache, cons_size);
+//			getLastCudaError("Kernel execution failed");
+//			checkCudaErrors(cudaDeviceSynchronize());
+//
+//			checkCudaErrors(cudaMemcpy(host_is_colored.data(), is_colored_cache, con_blocks.x * sizeof(int), cudaMemcpyDeviceToHost));
+//			uncolored_count = cons_size;
+//			for (int i = 0; i < con_blocks.x; ++i)
+//				uncolored_count -= host_is_colored[i];
+//#endif
 
 #ifdef DEBUG_GRAPH_COLORING
-			int uncolored_count = cons_size;
-			std::vector<int> host_is_colored(cons_size, 0);
-			checkCudaErrors(cudaMemcpy(host_is_colored.data(), is_colored, cons_size * sizeof(int), cudaMemcpyDeviceToHost));
+			int uncolored_count = node_size;
+			std::vector<int> host_is_colored(node_size, 0);
+			checkCudaErrors(cudaMemcpy(host_is_colored.data(), is_colored, node_size * sizeof(int), cudaMemcpyDeviceToHost));
 			uncolored_count = 0;
-			for (int i = 0; i < cons_size; ++i)
+			for (int i = 0; i < node_size; ++i)
 				if (host_is_colored[i] == 0) uncolored_count += 1;
-
-#ifdef DEBUG_CUDA		
 			std::cout << "uncolored " << uncolored_count << std::endl;
-#endif
-
 #endif
 
 			iter_no += 1;
