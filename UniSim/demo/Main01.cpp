@@ -249,7 +249,7 @@ int main()
 	//});
 	clothmesh->remesh(0.5f, 4);
 	clothmesh->computeNormals();
-	//humanmesh->remesh(0.1f, 3);
+	humanmesh->remesh(0.5f, 4);
 	humanmesh->computeNormals();
 
 	FreeCameraActor camera_actor{ &camera };

@@ -53,7 +53,7 @@ namespace uni
 		unsigned int pid = threadIdx.x + blockDim.x * blockIdx.x;
 		if (pid >= p_size) return;
 
-		float3 force = { 0.0f, -0.00f, 0.0f };
+		float3 force = { 0.0f, -0.010f, 0.0f };
 
 		float3 offset = 0.5f * inv_m[pid] * time_step * force;
 		v[pid] = v[pid] + offset;
@@ -152,7 +152,7 @@ namespace uni
 #endif
 
 		CollideGridSpace collide_space{ { -30.0f, -30.0f, -30.0f },{ 30.0f, 30.0f, 30.0f }, 2 * data->max_radius };
-		solveCollision(collide_space, data->p, data->inv_m, data->phase, p_size, 2.0f * data->max_radius, 2 * iter_cnt);
+		solveCollision(collide_space, data->p, data->inv_m, data->phase, p_size, 1.2f * 2.0f * data->max_radius, iter_cnt);
 
 		if (colors == nullptr)
 		{

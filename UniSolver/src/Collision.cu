@@ -24,9 +24,9 @@ namespace uni
 
 		float sq_dist = squared_length(p + (-other_p));
 		if (sq_dist >= d * d) return false;
+		if (sq_dist < eps * eps) return false;
 
 		float dist = sqrtf(sq_dist);
-		if (-eps < dist && dist < eps) return false;
 		float delta_d = dist - d;
 
 		float3 tmp = delta_d / ((inv_m + other_inv_m) * dist) * (p + (-other_p));
@@ -90,9 +90,14 @@ namespace uni
 			{
 				int other_pid = par_ids[i];
 				if (pid == other_pid) continue;
-				//if (phases[pid] == phases[other_pid]) continue;
-				bool collide = solvePWiseCollideConstraint(delta_pos[pid], pos[pid], pos[other_pid], inv_m[pid], inv_m[other_pid], min_dist);
-				if (collide) count += 1;
+				if (phases[pid] == phases[other_pid]) continue;
+				float3 d_p = { 0.0f, 0.0f, 0.0f };
+				bool collide = solvePWiseCollideConstraint(d_p, pos[pid], pos[other_pid], inv_m[pid], inv_m[other_pid], min_dist);
+				if (collide)
+				{
+					count += 1;
+					delta_pos[pid] = delta_pos[pid] + d_p;
+				}
 			}
 		}
 		if (count > 0)
