@@ -152,7 +152,7 @@ namespace uni
 #endif
 
 		CollideGridSpace collide_space{ { -30.0f, -30.0f, -30.0f },{ 30.0f, 30.0f, 30.0f }, 2 * data->max_radius };
-		solveCollision(collide_space, data->p, data->inv_m, data->phase, p_size, 1.2f * 2.0f * data->max_radius, iter_cnt);
+		solveCollision(collide_space, data->p, data->inv_m, data->phase, p_size, 1.4f * 2.0f * data->max_radius, iter_cnt);
 
 		if (colors == nullptr)
 		{

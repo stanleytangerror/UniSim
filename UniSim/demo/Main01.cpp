@@ -230,35 +230,48 @@ int main()
 
 	//ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ColumnsClothesCouple/Cloth06.obj");
 	//ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/Basic Geometries/SquareCloth_50m50/Clothes.obj");
-	ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan01/Cloth.obj");
+	ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Cloth.obj");
 	
+	ResourceManager::LoadMeshes("trousers", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Trousers.obj");
+
 	//ResourceManager::LoadMeshes("human", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ColumnsClothesCouple/Columns.obj");
-	ResourceManager::LoadMeshes("human", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan01/Man.obj");
-	//ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan01/Man.obj");
+	ResourceManager::LoadMeshes("human", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Man.obj");
 	
 	ResourceManager::LoadShader("rigid_body", "src/GLSL/rigid_body_vs.glsl", "src/GLSL/rigid_body_frag.glsl", "");
 
 	auto * clothmesh = ResourceManager::GetMesh("cloth")[0];
+	auto * trousersmesh = ResourceManager::GetMesh("trousers")[0];
 	auto * humanmesh = ResourceManager::GetMesh("human")[0];
 	auto * shader = ResourceManager::GetShader("rigid_body");
 
 	//clothmesh->affineTransform({
-	//	0.64f, 0.0f, 0.0f, 0.0f,
-	//	0.0f, 0.64f, 0.0f, 0.0f,
-	//	0.0f, 0.0f, 0.64f, 0.0f
+	//	0.32f, 0.0f, 0.0f, 0.0f,
+	//	0.0f, 0.32f, 0.0f, 0.0f,
+	//	0.0f, 0.0f, 0.32f, 0.0f
 	//});
-	clothmesh->remesh(0.5f, 4);
+	clothmesh->remesh(0.5f, 3);
 	clothmesh->computeNormals();
-	humanmesh->remesh(0.5f, 4);
+
+	trousersmesh->remesh(0.5f, 3);
+	trousersmesh->computeNormals();
+
+	//humanmesh->affineTransform({
+	//	0.4f, 0.0f, 0.0f, 0.0f,
+	//	0.0f, 0.4f, 0.0f, 0.0f,
+	//	0.0f, 0.0f, 0.4f, 0.0f
+	//});
+	humanmesh->remesh(0.5f, 2);
 	humanmesh->computeNormals();
 
 	FreeCameraActor camera_actor{ &camera };
 	ThingActor cloth_actor{ clothmesh };
+	ThingActor trousers_actor{ trousersmesh };
 	//ThingActor human_actor{ clothmesh };
-	RenderActor render_actor{ &camera, { { clothmesh,{0.4f, 0.4f, 0.9f} },{ humanmesh,{0.6f, 0.6f, 0.6f} } }, shader };
+	RenderActor render_actor{ &camera, { { clothmesh,{0.4f, 0.4f, 0.9f} },{ trousersmesh,{ 0.6f, 0.9f, 0.6f } },{ humanmesh,{0.6f, 0.6f, 0.6f} } }, shader };
 	PhysicsActor physics_actor{ 0.15f, 5 };
 	physics_actor.addDynamicMesh(clothmesh, 1, { 0.0f, 0.0f, 0.0f }, 1.0f);
-	physics_actor.addKinematicMesh(humanmesh, 2);
+	physics_actor.addDynamicMesh(trousersmesh, 2, { 0.0f, 0.0f, 0.0f }, 1.0f);
+	physics_actor.addKinematicMesh(humanmesh, 3);
 	physics_actor.getReady();
 
 	auto inputHandler = std::make_unique<InputHandler>();
@@ -285,6 +298,7 @@ int main()
 		camera_actor.tick(1.0f);
 		physics_actor.tick(0.5f);
 		cloth_actor.tick(0.5f);
+		trousers_actor.tick(0.5f);
 		//human_actor.tick(0.5f);
 		render_actor.tick(0.5f);
 
