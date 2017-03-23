@@ -19,7 +19,6 @@ public:
 
 	virtual void tick(float deltaTime) override 
 	{
-		meshobj->computeNormals();
 	}
 };
 
@@ -208,6 +207,9 @@ public:
 					mesh.point(vid) = { m_positions[idx].x, m_positions[idx].y, m_positions[idx].z };
 				}
 			}
+
+			p.first->computeNormals();
+
 		}
 	}
 
@@ -266,7 +268,7 @@ int main()
 	FreeCameraActor camera_actor{ &camera };
 	ThingActor cloth_actor{ clothmesh };
 	ThingActor trousers_actor{ trousersmesh };
-	//ThingActor human_actor{ clothmesh };
+	ThingActor human_actor{ humanmesh };
 	RenderActor render_actor{ &camera, { { clothmesh,{0.4f, 0.4f, 0.9f} },{ trousersmesh,{ 0.6f, 0.9f, 0.6f } },{ humanmesh,{0.6f, 0.6f, 0.6f} } }, shader };
 	PhysicsActor physics_actor{ 0.15f, 5 };
 	physics_actor.addDynamicMesh(clothmesh, 1, { 0.0f, 0.0f, 0.0f }, 1.0f);
@@ -296,10 +298,10 @@ int main()
 		}
 
 		camera_actor.tick(1.0f);
-		physics_actor.tick(0.5f);
 		cloth_actor.tick(0.5f);
 		trousers_actor.tick(0.5f);
-		//human_actor.tick(0.5f);
+		human_actor.tick(0.5f);
+		physics_actor.tick(0.5f);
 		render_actor.tick(0.5f);
 
 		screen.swapBuffers();
