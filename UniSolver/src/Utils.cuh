@@ -57,7 +57,9 @@ __host__ __device__ inline float length(const float3 & v)
 
 __host__ __device__ inline unsigned int range_hash(unsigned int seed, unsigned int range)
 {
-	return (seed + 68857) % range;
+	//return (seed + 68857) % range;
+	return (unsigned int) floor(range * ((seed * 0.6180339887) - floor(seed * 0.6180339887)));
+	//return ((seed + 68857) ^ ((seed + 68857) << 3) ^ ((seed + 68857) >> 7)) % range;
 	//unsigned int hashCode = seed ^ (seed >> 20) ^ (seed >> 12);
 	//return (seed ^ (seed >> 7) ^ (seed >> 4)) % range;
 }

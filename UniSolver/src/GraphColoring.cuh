@@ -10,12 +10,14 @@
 
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <curand.h>
+#include <curand_kernel.h>
 #include <device_launch_parameters.h>
 #include <vector>
 #include <chrono>
 #include <random>
 
-//#define DEBUG_GRAPH_COLORING
+#define DEBUG_GRAPH_COLORING
 
 namespace uni
 {
@@ -41,7 +43,12 @@ namespace uni
 		int colors[max_size];
 	};
 
-
+	__global__ void setupRand_k(curandState * rand_state, int node_size)
+	{
+		unsigned int cid = threadIdx.x + blockDim.x * blockIdx.x;
+		if (cid >= node_size) return;
+		curand_init(1234, cid, 0, &rand_state[cid]);
+	}
 	template <typename PaletteType>
 	__global__ void preColoring_k(int * is_colored, PaletteType * palettes, int node_size)
 	{
@@ -56,16 +63,16 @@ namespace uni
 	}
 
 	template <typename PaletteType>
-	__global__ void tentativeColoring_k(int * is_colored, PaletteType * palettes, int * colors, unsigned int rand_input, int node_size)
+	__global__ void tentativeColoring_k(curandState * rand_state, int * is_colored, PaletteType * palettes, int * colors, int node_size)
 	{
 		unsigned int cid = threadIdx.x + blockDim.x * blockIdx.x;
 		if (cid >= node_size) return;
 		if (is_colored[cid] == 1) return;
 
-		//unsigned int no = (cid + rand_input + 68857) % int(palettes[cid].max_size * 0.94f);
-		unsigned int seed = range_hash(cid + rand_input, 97);
-		unsigned int no = range_hash(seed, palettes[cid].max_size * 0.94f);
-		//unsigned int no = range_hash(rand_input, palettes[cid].max_size * 0.94f);
+		//unsigned int seed = range_hash(cid + rand_input, 97);
+		//unsigned int no = range_hash(seed, palettes[cid].max_size * 0.94f);
+
+		unsigned int no = (palettes[cid].max_size * 0.94f) * (1.0f - curand_uniform(&rand_state[cid]));
 		int cnt = 0;
 		for (int i = 0; ; i = (i + 1) % palettes[cid].valid_size)
 		{
@@ -138,6 +145,7 @@ namespace uni
 		static Palette<MaxDegree> * palettes = nullptr;
 		static int * is_colored = nullptr;
 		static int * is_colored_cache = nullptr;
+		static curandState * rand_states = nullptr;
 
 		if (palettes == nullptr)
 			cudaMalloc((void **)&palettes, node_size * sizeof(Palette<MaxDegree>));
@@ -145,6 +153,8 @@ namespace uni
 			cudaMalloc((void **)&is_colored, node_size * sizeof(int));
 		if (is_colored_cache == nullptr)
 			cudaMalloc((void **)&is_colored_cache, node_size * sizeof(int));
+		if (rand_states == nullptr)
+			cudaMalloc((void **)&rand_states, node_size * sizeof(curandState));
 
 		int threadsPerBlock = 1024;
 		dim3 con_blocks((node_size + threadsPerBlock - 1) / threadsPerBlock);
@@ -163,21 +173,26 @@ namespace uni
 		getLastCudaError("Kernel execution failed");
 		checkCudaErrors(cudaDeviceSynchronize());
 
+		checkCudaErrors(cudaDeviceSynchronize());
+		setupRand_k << <con_blocks, con_threads >> >(rand_states, node_size);
+		getLastCudaError("Kernel execution failed");
+		checkCudaErrors(cudaDeviceSynchronize());
+
 		int iter_no = 0;
 		bool all_colored = false;
 
-		std::random_device rd;
-		std::mt19937 mt(rd());
-		std::uniform_int_distribution<unsigned int> dist(0, 97);
+		//std::random_device rd;
+		//std::mt19937 mt(rd());
+		//std::uniform_int_distribution<unsigned int> dist(0, 97);
 		
 		while (all_colored == false)
 		{
 #ifdef DEBUG_GRAPH_COLORING		
 			std::cout << "start graph coloring iterate no." << iter_no << std::endl;
 #endif
-			unsigned int rand_seed = dist(mt);
+			//unsigned int rand_seed = dist(mt);
 			//std::cout << rand_seed << std::endl;
-			tentativeColoring_k<Palette<MaxDegree>> << <con_blocks, con_threads >> >(is_colored, palettes, node_colors, rand_seed, node_size);
+			tentativeColoring_k<Palette<MaxDegree>> << <con_blocks, con_threads >> >(rand_states, is_colored, palettes, node_colors, node_size);
 			getLastCudaError("Kernel execution failed");
 			checkCudaErrors(cudaDeviceSynchronize());
 

@@ -10,16 +10,18 @@
 #include <memory>
 #include <chrono>
 
-class ThingActor : public Actor
+class ClothActor : public Actor
 {
 private:
 	SurfaceMeshObject * meshobj;
 public:
-	ThingActor(SurfaceMeshObject * meshobj) : meshobj(meshobj) {}
+	ClothActor(SurfaceMeshObject * meshobj) : meshobj(meshobj) {}
 
 	virtual void tick(float deltaTime) override 
 	{
+
 	}
+
 };
 
 class RenderActor : public Actor
@@ -170,7 +172,7 @@ public:
 		m_runner->set_constraints(m_constraints);
 	}
 
-	void preTick()
+	virtual void tick(float deltaTime) override
 	{
 		for (auto & p : m_meshobjs)
 		{
@@ -188,10 +190,9 @@ public:
 		}
 	
 		m_runner->set_positions(m_positions);
-	}
 
-	void postTick()
-	{
+		m_runner->tick(deltaTime);
+
 		m_runner->get_positions(m_positions);
 	
 		for (auto & p : m_meshobjs)
@@ -213,12 +214,6 @@ public:
 		}
 	}
 
-	virtual void tick(float deltaTime) override
-	{
-		preTick();
-		m_runner->tick(deltaTime);
-		postTick();
-	}
 
 };
 
@@ -232,7 +227,9 @@ int main()
 
 	//ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ColumnsClothesCouple/Cloth06.obj");
 	//ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/Basic Geometries/SquareCloth_50m50/Clothes.obj");
-	ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Cloth.obj");
+	//ResourceManager::LoadMeshes("shirt", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Cloth.obj");
+	ResourceManager::LoadMeshes("shirt", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Shirt_8k.obj");
+	//ResourceManager::LoadMeshes("shirt", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Shirt02.obj");
 	
 	ResourceManager::LoadMeshes("trousers", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Trousers.obj");
 
@@ -241,20 +238,20 @@ int main()
 	
 	ResourceManager::LoadShader("rigid_body", "src/GLSL/rigid_body_vs.glsl", "src/GLSL/rigid_body_frag.glsl", "");
 
-	auto * clothmesh = ResourceManager::GetMesh("cloth")[0];
+	auto * shirtmesh = ResourceManager::GetMesh("shirt")[0];
 	auto * trousersmesh = ResourceManager::GetMesh("trousers")[0];
 	auto * humanmesh = ResourceManager::GetMesh("human")[0];
 	auto * shader = ResourceManager::GetShader("rigid_body");
 
-	//clothmesh->affineTransform({
+	//shirtmesh->affineTransform({
 	//	0.32f, 0.0f, 0.0f, 0.0f,
 	//	0.0f, 0.32f, 0.0f, 0.0f,
 	//	0.0f, 0.0f, 0.32f, 0.0f
 	//});
-	clothmesh->remesh(0.5f, 3);
-	clothmesh->computeNormals();
+	//shirtmesh->remesh(0.5f, 3);
+	shirtmesh->computeNormals();
 
-	trousersmesh->remesh(0.5f, 3);
+	//trousersmesh->remesh(0.5f, 3);
 	trousersmesh->computeNormals();
 
 	//humanmesh->affineTransform({
@@ -262,17 +259,23 @@ int main()
 	//	0.0f, 0.4f, 0.0f, 0.0f,
 	//	0.0f, 0.0f, 0.4f, 0.0f
 	//});
-	humanmesh->remesh(0.5f, 2);
-	humanmesh->computeNormals();
+	//humanmesh->remesh(0.5f, 2);
+	//humanmesh->computeNormals();
 
 	FreeCameraActor camera_actor{ &camera };
-	ThingActor cloth_actor{ clothmesh };
-	ThingActor trousers_actor{ trousersmesh };
-	ThingActor human_actor{ humanmesh };
-	RenderActor render_actor{ &camera, { { clothmesh,{0.4f, 0.4f, 0.9f} },{ trousersmesh,{ 0.6f, 0.9f, 0.6f } },{ humanmesh,{0.6f, 0.6f, 0.6f} } }, shader };
-	PhysicsActor physics_actor{ 0.15f, 5 };
-	physics_actor.addDynamicMesh(clothmesh, 1, { 0.0f, 0.0f, 0.0f }, 1.0f);
-	physics_actor.addDynamicMesh(trousersmesh, 2, { 0.0f, 0.0f, 0.0f }, 1.0f);
+	ClothActor shirt_actor{ shirtmesh };
+	ClothActor trousers_actor{ trousersmesh };
+	ClothActor human_actor{ humanmesh };
+	RenderActor render_actor{ &camera, 
+		{ 
+			{ shirtmesh,{0.4f, 0.4f, 0.9f} },
+			//{ trousersmesh,{ 0.6f, 0.9f, 0.6f } },
+			{ humanmesh,{0.6f, 0.6f, 0.6f} } 
+		}, 
+		shader };
+	PhysicsActor physics_actor{ 0.15f, 6 };
+	physics_actor.addDynamicMesh(shirtmesh, 1, { 0.0f, 0.0f, 0.0f }, 1.0f);
+	//physics_actor.addDynamicMesh(trousersmesh, 2, { 0.0f, 0.0f, 0.0f }, 1.0f);
 	physics_actor.addKinematicMesh(humanmesh, 3);
 	physics_actor.getReady();
 
@@ -297,8 +300,16 @@ int main()
 				command->execute(&camera_actor);
 		}
 
+		float theta = std::sin(cnt / 100.0f) * 0.02f;
+		humanmesh->affineTransform(
+		{
+			std::cos(theta), 0.0f, -std::sin(theta), 0.0f,
+			0.0f,			 1.0f, 0.0f,			 0.0f,
+			std::sin(theta), 0.0f, std::cos(theta),  0.0f
+		});
+
 		camera_actor.tick(1.0f);
-		cloth_actor.tick(0.5f);
+		shirt_actor.tick(0.5f);
 		trousers_actor.tick(0.5f);
 		human_actor.tick(0.5f);
 		physics_actor.tick(0.5f);
