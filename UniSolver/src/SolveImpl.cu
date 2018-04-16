@@ -152,7 +152,7 @@ namespace uni
 #endif
 
 		CollideGridSpace collide_space{ { -30.0f, -30.0f, -30.0f },{ 30.0f, 30.0f, 30.0f }, 2 * data->max_radius };
-		solveCollision(collide_space, data->p, data->inv_m, data->phase, p_size, 1.4f * 2.0f * data->max_radius, iter_cnt);
+		solveCollision(collide_space, data->p, data->inv_m, data->phase, p_size, 2.0f * 2.0f * data->max_radius, 2 * iter_cnt);
 
 		if (colors == nullptr)
 		{
@@ -162,7 +162,7 @@ namespace uni
 #endif
 
 			cudaMalloc((void **)&colors, cons_size * sizeof(int));
-			callGraphColoring_Gauss<16>(data, colors, cons_size);
+			callGraphColoring_Gauss<32>(data, colors, cons_size);
 		}
 
 
@@ -171,7 +171,7 @@ namespace uni
 #ifdef DEBUG_SOLVER_IMPLEMENTATION
 			std::cout << "start solve iterate no." << i << std::endl;
 #endif
-			for (int gid = 0; gid < 16; ++gid)
+			for (int gid = 0; gid < 32; ++gid)
 			{
 
 #ifdef DEBUG_SOLVER_IMPLEMENTATION
