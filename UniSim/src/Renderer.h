@@ -35,13 +35,13 @@ public:
 		glUniformMatrix4fv(glGetUniformLocation(shader->Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
 
 		glUniform3f(glGetUniformLocation(shader->Program, "viewPos"), viewPos.x, viewPos.y, viewPos.z);
-		glUniform3f(glGetUniformLocation(shader->Program, "light.direction"), 0.0f, 1.0f, 0.0f);
+		glUniform3f(glGetUniformLocation(shader->Program, "light.direction"), 0.0f, -0.707f, -0.707f);
 		glUniform3f(glGetUniformLocation(shader->Program, "light.color"), 0.75f, 0.75f, 0.75f);
 		/* from http://devernay.free.fr/cours/opengl/materials.html */
-		glUniform3f(glGetUniformLocation(shader->Program, "material.ambient"), 0.3f * r, 0.3f * g, 0.3f * b);
+		glUniform3f(glGetUniformLocation(shader->Program, "material.ambient"), 0.6f * r, 0.6f * g, 0.6f * b);
 		glUniform3f(glGetUniformLocation(shader->Program, "material.diffuse"), 0.6f * r, 0.6f * g, 0.6f * b);
-		glUniform3f(glGetUniformLocation(shader->Program, "material.specular"), 0.6f * r, 0.6f * g, 0.6f * b);
-		glUniform1f(glGetUniformLocation(shader->Program, "material.shininess"), 0.4f);
+		glUniform3f(glGetUniformLocation(shader->Program, "material.specular"), 0.1f * r, 0.1f * g, 0.1f * b);
+		glUniform1f(glGetUniformLocation(shader->Program, "material.shininess"), 0.07f);
 
 		glBindVertexArray(meshVAO);
 		{

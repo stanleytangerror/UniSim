@@ -3,6 +3,7 @@
 
 #include "Actor.h"
 #include "Camera.h"
+#include "Clock.h"
 
 #include <queue>
 
@@ -14,6 +15,7 @@ public:
 		FreeCameraMoveCommmand,
 		FreeCameraGlanceCommmand,
 		FreeCameraFocusCommmand,
+		PauseCommand,
 		PhysicsCommmand
 	};
 
@@ -76,6 +78,37 @@ public:
 	}
 
 	float offset;
+};
+
+class PauseCommmand : public Command
+{
+public:
+	PauseCommmand() :
+		Command(Command::Type::PauseCommand) {}
+
+	virtual void execute(Actor * actor) override
+	{
+		(actor);
+
+		if (Clock::Instance()->paused())
+			Clock::Instance()->resume();
+		else
+			Clock::Instance()->pause();
+	}
+};
+
+class RunALittleCommmand : public Command
+{
+public:
+	RunALittleCommmand() 
+		: Command(Command::Type::PauseCommand) {}
+
+	virtual void execute(Actor * actor) override
+	{
+		(actor);
+
+		Clock::Instance()->RunForFrameCount(10);
+	}
 };
 
 //class PhysicsCommmand : public Command

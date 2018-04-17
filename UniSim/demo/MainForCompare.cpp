@@ -1,4 +1,6 @@
-#ifdef USE_MAIN_01
+#define USE_MAIN_FOR_COMPARE
+
+#ifdef USE_MAIN_FOR_COMPARE
 
 #include "../src/Mesh.h"
 #include "../src/Renderer.h"
@@ -262,7 +264,7 @@ int main()
 	//	0.0f, 0.0f, 0.4f, 0.0f
 	//});
 	//humanmesh->remesh(0.5f, 2);
-	//humanmesh->computeNormals();
+	humanmesh->computeNormals();
 
 	FreeCameraActor camera_actor{ &camera };
 	ClothActor shirt_actor{ shirtmesh };
@@ -270,9 +272,9 @@ int main()
 	ClothActor human_actor{ humanmesh };
 	RenderActor render_actor{ &camera, 
 		{ 
-			{ shirtmesh,{0.4f, 0.4f, 0.9f} },
+			{ shirtmesh,{0.4f, 0.7f, 0.9f} },
 			//{ trousersmesh,{ 0.6f, 0.9f, 0.6f } },
-			{ humanmesh,{0.6f, 0.6f, 0.6f} } 
+			{ humanmesh,{0.4f, 0.4f, 0.4f} } 
 		}, 
 		shader };
 	PhysicsActor physics_actor{ 0.15f, 6 };
@@ -290,6 +292,8 @@ int main()
 
 	while (!screen.closed())
 	{
+		Clock::Instance()->Tick(1.0f);
+
 		screen.clear();
 		screen.pullEvents();
 		
@@ -314,7 +318,12 @@ int main()
 		shirt_actor.tick(0.5f);
 		trousers_actor.tick(0.5f);
 		human_actor.tick(0.5f);
-		physics_actor.tick(0.5f);
+
+		if (!Clock::Instance()->paused())
+		{
+			physics_actor.tick(0.5f);
+		}
+
 		render_actor.tick(0.5f);
 
 		screen.swapBuffers();

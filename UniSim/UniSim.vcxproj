@@ -171,7 +171,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="demo\Main01.cpp" />
+    <ClCompile Include="demo\MainForCompare.cpp" />
+    <ClCompile Include="src\Clock.cpp" />
     <ClCompile Include="src\EventManager.cpp" />
+    <ClCompile Include="src\LogSystem.cpp" />
     <ClCompile Include="src\Mesh.cpp" />
     <ClCompile Include="src\ResourceManager.cpp" />
     <ClCompile Include="src\Shader.cpp" />
@@ -180,8 +183,10 @@
   <ItemGroup>
     <ClInclude Include="src\Actor.h" />
     <ClInclude Include="src\Camera.h" />
+    <ClInclude Include="src\Clock.h" />
     <ClInclude Include="src\Commands.h" />
     <ClInclude Include="src\EventManager.h" />
+    <ClInclude Include="src\LogSystem.h" />
     <ClInclude Include="src\Mesh.h" />
     <ClInclude Include="src\OpenGLContext.h" />
     <ClInclude Include="src\Physics.h" />

@@ -41,6 +41,15 @@ public:
 			d_state = d;
 			queue->push(new FreeCameraMoveCommmand(Camera_Movement::RIGHT, 0.05f, d_state == GLFW_PRESS));
 		}
+		if (GLFW_PRESS == glfwGetKey(window, GLFW_KEY_X))
+		{
+			queue->push(new PauseCommmand());
+		}
+		if (GLFW_PRESS == glfwGetKey(window, GLFW_KEY_C))
+		{
+			queue->push(new RunALittleCommmand());
+		}
+
 		//auto x = glfwGetKey(window, GLFW_KEY_X);
 		//if (x == GLFW_PRESS)
 		//	queue->push(new PhysicsCommmand());

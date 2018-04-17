@@ -14,6 +14,7 @@
 #include <device_functions.h>
 
 //#define DEBUG_SOLVER_IMPLEMENTATION
+//#define DO_GRAPH_COLORING_EACH_FRAME
 
 namespace uni
 {
@@ -123,6 +124,7 @@ namespace uni
 	void solve_Gauss(SolverData * data, unsigned int p_size, unsigned int cons_size, float time_step, int iter_cnt)
 	{
 		static int * colors = nullptr;
+		static bool	graphColored = false;
 
 #ifdef PROFILE_CUDA
 		cudaEvent_t start, stop;
@@ -156,14 +158,29 @@ namespace uni
 
 		if (colors == nullptr)
 		{
+			cudaMalloc((void **)&colors, cons_size * sizeof(int));
+		}
+
+#ifdef DO_GRAPH_COLORING_EACH_FRAME
+
+#ifdef DEBUG_SOLVER_IMPLEMENTATION
+		std::cout << "start graph coloring" << std::endl;
+#endif
+
+		callGraphColoring_Gauss<32>(data, colors, cons_size);
+#else
+		if (!graphColored)
+		{
 
 #ifdef DEBUG_SOLVER_IMPLEMENTATION
 			std::cout << "start graph coloring" << std::endl;
 #endif
 
-			cudaMalloc((void **)&colors, cons_size * sizeof(int));
 			callGraphColoring_Gauss<32>(data, colors, cons_size);
+			graphColored = true;
 		}
+
+#endif
 
 
 		for (int i = 0; i < iter_cnt; ++i)

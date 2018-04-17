@@ -116,6 +116,9 @@ public:
 		auto res = std::make_unique<SurfaceMeshObject>(DefPropName::vNormals_op | DefPropName::fNormals_op);
 		auto & mesh = res.get()->getMesh();
 
+		std::cout << "\t Vertices " << aimesh->mNumVertices << std::endl;
+		std::cout << "\t Faces " << aimesh->mNumFaces << std::endl;
+
 		Veridx * indiceVector = new Veridx[aimesh->mNumVertices];
 		// Walk through each of the mesh's vertices
 		for (unsigned int i = 0; i < aimesh->mNumVertices; i++)
