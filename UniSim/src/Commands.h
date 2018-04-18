@@ -107,7 +107,8 @@ public:
 	{
 		(actor);
 
-		Clock::Instance()->RunForFrameCount(10);
+		Clock::Instance()->resume();
+		Clock::Instance()->PushFrameCounter(new FrameCounter(10, []() { Clock::Instance()->pause(); }));
 	}
 };
 

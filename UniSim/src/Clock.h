@@ -3,13 +3,15 @@
 
 #include <ctime>
 #include <functional>
+#include <vector>
+
+class FrameCounter;
 
 class Clock
 {
 public:
 	Clock(bool isPaused = false) 
 		: isPaused(isPaused)
-		, mRunningFrameCounter(0)
 	{ }
 
 	void pause()
@@ -27,24 +29,14 @@ public:
 		return isPaused;
 	}
 
-	void Tick(float deltaTime)
-	{
-		if (mRunningFrameCounter > 0)
-			mRunningFrameCounter --;
-		else
-			pause();
-	}
+	void Tick(float deltaTime);
 
-	void RunForFrameCount(int frameCount)
-	{
-		mRunningFrameCounter = frameCount;
-		resume();
-	}
+	void PushFrameCounter(FrameCounter * const frameCounter);
 
 private:
-	std::clock_t * stdClock;
-	bool isPaused;
-	int mRunningFrameCounter;
+	std::clock_t *				stdClock;
+	bool						isPaused;
+	std::vector<FrameCounter *>	mCounters;
 
 public:
 	static Clock * Instance()
@@ -65,10 +57,12 @@ class FrameCounter
 public:
 	using			Functor = std::function<void()>;
 
-					FrameCounter(int frameCount, const Functor& onHit);
+					FrameCounter(int frameCount, const Functor & onHit);
 	virtual			~FrameCounter() {}
 
 	virtual	void	Tick();
+
+	bool			IsAlive() const { return mAlive; }
 
 protected:
 	Functor	mOnHit;

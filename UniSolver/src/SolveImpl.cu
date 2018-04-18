@@ -5,6 +5,8 @@
 #include "Collision.h"
 #include "helper_cuda.h"
 
+#include "Profile.h"
+
 #include <vector>
 
 #include <cuda.h>
@@ -15,6 +17,29 @@
 
 //#define DEBUG_SOLVER_IMPLEMENTATION
 //#define DO_GRAPH_COLORING_EACH_FRAME
+
+namespace
+{
+	static const std::string profileFile = "E:/Microsoft Visual Studio 2015/Workspace/UniSim/UniSolver/log/LogFile.txt";
+
+	void ProfileNewFrame()
+	{
+		std::ofstream outfile;
+		outfile.open(profileFile, std::ios_base::app);
+		outfile << std::endl;
+	}
+
+	void ProfileResult(const ScopedProfiler::TimeCount start, const ScopedProfiler::TimeCount end)
+	{
+		std::ofstream outfile;
+		outfile.open(profileFile, std::ios_base::app);
+		outfile << std::to_string(end - start) << ", ";
+	}
+}
+
+#define PROFILE_SCOPE							\
+	ScopedProfiler profiler(ProfileResult);		\
+	(profiler);
 
 namespace uni
 {
@@ -125,6 +150,7 @@ namespace uni
 	{
 		static int * colors = nullptr;
 		static bool	graphColored = false;
+		ProfileNewFrame();
 
 #ifdef PROFILE_CUDA
 		cudaEvent_t start, stop;
@@ -145,68 +171,83 @@ namespace uni
 		std::cout << "start free run" << std::endl;
 #endif
 
-		freeRun_Gauss_k <<<p_blocks, p_threads>>> (data->x, data->p, data->v, data->inv_m, time_step, p_size);
-		getLastCudaError("Kernel execution failed");
-		checkCudaErrors(cudaDeviceSynchronize());
+		{
+			PROFILE_SCOPE;
+			freeRun_Gauss_k << <p_blocks, p_threads >> > (data->x, data->p, data->v, data->inv_m, time_step, p_size);
+			getLastCudaError("Kernel execution failed");
+			checkCudaErrors(cudaDeviceSynchronize());
+		}
 
 #ifdef DEBUG_SOLVER_IMPLEMENTATION
 		std::cout << "start solve collision" << std::endl;
 #endif
 
-		CollideGridSpace collide_space{ { -30.0f, -30.0f, -30.0f },{ 30.0f, 30.0f, 30.0f }, 2 * data->max_radius };
-		solveCollision(collide_space, data->p, data->inv_m, data->phase, p_size, 2.0f * 2.0f * data->max_radius, 2 * iter_cnt);
-
-		if (colors == nullptr)
 		{
-			cudaMalloc((void **)&colors, cons_size * sizeof(int));
+			PROFILE_SCOPE;
+			CollideGridSpace collide_space{ { -30.0f, -30.0f, -30.0f },{ 30.0f, 30.0f, 30.0f }, 2 * data->max_radius };
+			solveCollision(collide_space, data->p, data->inv_m, data->phase, p_size, 2.0f * 2.0f * data->max_radius, 2 * iter_cnt);
 		}
 
-#ifdef DO_GRAPH_COLORING_EACH_FRAME
-
-#ifdef DEBUG_SOLVER_IMPLEMENTATION
-		std::cout << "start graph coloring" << std::endl;
-#endif
-
-		callGraphColoring_Gauss<32>(data, colors, cons_size);
-#else
-		if (!graphColored)
 		{
+			PROFILE_SCOPE;
+
+			if (colors == nullptr)
+			{
+				cudaMalloc((void **)&colors, cons_size * sizeof(int));
+			}
+
+#ifdef DO_GRAPH_COLORING_EACH_FRAME
 
 #ifdef DEBUG_SOLVER_IMPLEMENTATION
 			std::cout << "start graph coloring" << std::endl;
 #endif
 
 			callGraphColoring_Gauss<32>(data, colors, cons_size);
-			graphColored = true;
-		}
-
-#endif
-
-
-		for (int i = 0; i < iter_cnt; ++i)
-		{
-#ifdef DEBUG_SOLVER_IMPLEMENTATION
-			std::cout << "start solve iterate no." << i << std::endl;
-#endif
-			for (int gid = 0; gid < 32; ++gid)
+#else
+			if (!graphColored)
 			{
 
 #ifdef DEBUG_SOLVER_IMPLEMENTATION
-				std::cout << "start solve iterate no." << i << " group no." << gid << std::endl;
+				std::cout << "start graph coloring" << std::endl;
 #endif
 
-				projectConstraint_Gauss_k << <con_blocks, con_threads >> >(data->x, data->p, data->v, data->inv_m, data->cons, colors, cons_size, gid);
-				getLastCudaError("Kernel execution failed");
-				checkCudaErrors(cudaDeviceSynchronize());
+				callGraphColoring_Gauss<32>(data, colors, cons_size);
+				graphColored = true;
+			}
+#endif
+		}
+
+		{
+			PROFILE_SCOPE;
+			for (int i = 0; i < iter_cnt; ++i)
+			{
+#ifdef DEBUG_SOLVER_IMPLEMENTATION
+				std::cout << "start solve iterate no." << i << std::endl;
+#endif
+				for (int gid = 0; gid < 32; ++gid)
+				{
+
+#ifdef DEBUG_SOLVER_IMPLEMENTATION
+					std::cout << "start solve iterate no." << i << " group no." << gid << std::endl;
+#endif
+
+					projectConstraint_Gauss_k << <con_blocks, con_threads >> >(data->x, data->p, data->v, data->inv_m, data->cons, colors, cons_size, gid);
+					getLastCudaError("Kernel execution failed");
+					checkCudaErrors(cudaDeviceSynchronize());
+				}
 			}
 		}
 
 #ifdef DEBUG_SOLVER_IMPLEMENTATION
 		std::cout << "start update states" << std::endl;
 #endif
-		updateState_Gauss_k <<<p_blocks, p_threads>>>(data->x, data->p, data->v, data->inv_m, time_step, p_size);
-		getLastCudaError("Kernel execution failed");
-		checkCudaErrors(cudaDeviceSynchronize());
+
+		{
+			PROFILE_SCOPE;
+			updateState_Gauss_k << <p_blocks, p_threads >> >(data->x, data->p, data->v, data->inv_m, time_step, p_size);
+			getLastCudaError("Kernel execution failed");
+			checkCudaErrors(cudaDeviceSynchronize());
+		}
 
 #ifdef PROFILE_CUDA
 		checkCudaErrors(cudaEventRecord(stop, 0));
