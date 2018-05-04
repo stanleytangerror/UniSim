@@ -84,6 +84,12 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
+vec3 GammaCorrect(vec3 c)
+{
+	c = c / (c + vec3(1.0));
+	return pow(c, vec3(1.0 / 2.2));
+}
+
 void main()
 {
 	vec3 N = normalize(-frag_in.normal);
@@ -91,12 +97,13 @@ void main()
 
 	vec3 lightPos = vec3(3);
 	vec3 surfaceToLight = (lightPos - frag_in.fragPos);
+	vec3 lightColor = light.color;
 
 	///
 	SurfaceOutputStandard o;
-	o.Albedo = light.color * material.ambient;
+	o.Albedo = lightColor * material.diffuse;
 	o.Normal = N;
-	o.Emission = vec3(1.0, 0.0, 1.0);
+	o.Emission = vec3(0);
 	o.Metallic = 0;
 	o.Smoothness = 0.5;
 	o.Occlusion = 1.0;
@@ -106,20 +113,20 @@ void main()
 	vec3 albedo = o.Albedo;
 	float metallic = o.Metallic;
 	float roughness = clamp(1 - o.Smoothness, 0, 1);
-	float ao = o.Alpha * o.Occlusion;
+	float ao = o.Occlusion;
 
 	vec3 F0 = vec3(0.04);
 	F0 = mix(F0, albedo, metallic);
 
 	// reflectance equation
 	vec3 Lo = vec3(0.0);
-	//{
+	{
 		// calculate per-light radiance
 		vec3 L = normalize(surfaceToLight);
 		vec3 H = normalize(V + L);
 		float distance = length(surfaceToLight); distance = 1;
 		float attenuation = 1.0 / (distance * distance);
-		vec3 radiance = light.color * attenuation;
+		vec3 radiance = lightColor * attenuation;
 
 		// cook-torrance brdf
 		float NDF = DistributionGGX(N, H, roughness);
@@ -137,15 +144,12 @@ void main()
 		// add to outgoing radiance Lo
 		float NdotL = max(dot(N, L), 0.0);
 		Lo += (kD * albedo / PI + specular) * radiance * NdotL;
-	//}
+	}
 
 	vec3 ambient = vec3(0.3) * albedo * ao;
 	vec3 realColor = ambient + Lo;
 
-	realColor = realColor / (realColor + vec3(1.0));
-	realColor = pow(realColor, vec3(1.0 / 2.2));
-
-	color = vec4(realColor, 1.0);
+	color = vec4(GammaCorrect(realColor), 1.0);
 }
 
 #if NOT_DEFINED
