@@ -241,11 +241,13 @@ int main()
 	ResourceManager::LoadMeshes("human", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Man.obj");
 	
 	ResourceManager::LoadShader("rigid_body", "src/GLSL/rigid_body_vs.glsl", "src/GLSL/rigid_body_frag.glsl", "");
+	ResourceManager::LoadShader("cloth", "src/GLSL/cloth_vs.glsl", "src/GLSL/cloth_frag.glsl", "");
 
 	auto * shirtmesh = ResourceManager::GetMesh("shirt")[0];
 	auto * trousersmesh = ResourceManager::GetMesh("trousers")[0];
 	auto * humanmesh = ResourceManager::GetMesh("human")[0];
-	auto * shader = ResourceManager::GetShader("rigid_body");
+	auto * rigidBodyShader = ResourceManager::GetShader("rigid_body");
+	auto * clothShader = ResourceManager::GetShader("cloth");
 
 	//shirtmesh->affineTransform({
 	//	0.32f, 0.0f, 0.0f, 0.0f,
@@ -276,7 +278,9 @@ int main()
 			//{ trousersmesh,{ 0.6f, 0.9f, 0.6f } },
 			{ humanmesh,{0.4f, 0.4f, 0.4f} } 
 		}, 
-		shader };
+		//rigidBodyShader
+		clothShader
+	};
 	PhysicsActor physics_actor{ 0.15f, 6 };
 	physics_actor.addDynamicMesh(shirtmesh, 1, { 0.0f, 0.0f, 0.0f }, 1.0f);
 	//physics_actor.addDynamicMesh(trousersmesh, 2, { 0.0f, 0.0f, 0.0f }, 1.0f);

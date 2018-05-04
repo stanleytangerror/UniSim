@@ -36,7 +36,7 @@ public:
 
 		glUniform3f(glGetUniformLocation(shader->Program, "viewPos"), viewPos.x, viewPos.y, viewPos.z);
 		glUniform3f(glGetUniformLocation(shader->Program, "light.direction"), 0.0f, -0.707f, -0.707f);
-		glUniform3f(glGetUniformLocation(shader->Program, "light.color"), 0.75f, 0.75f, 0.75f);
+		glUniform3f(glGetUniformLocation(shader->Program, "light.color"), 1.0f, 1.0f, 1.0f);
 		/* from http://devernay.free.fr/cours/opengl/materials.html */
 		glUniform3f(glGetUniformLocation(shader->Program, "material.ambient"), 0.6f * r, 0.6f * g, 0.6f * b);
 		glUniform3f(glGetUniformLocation(shader->Program, "material.diffuse"), 0.6f * r, 0.6f * g, 0.6f * b);
