@@ -86,9 +86,9 @@ namespace uni
 			int par_end = ceil_ranges[h].y;
 			if (!(0 <= par_start && par_start < p_size)) continue;
 			if (!(0 <= par_end && par_end < p_size)) continue;
-			for (int i = par_start; i <= par_end; ++i)
+			for (int pos_i = par_start; pos_i <= par_end; ++pos_i)
 			{
-				int other_pid = par_ids[i];
+				int other_pid = par_ids[pos_i];
 				if (pid == other_pid) continue;
 				if (phases[pid] == phases[other_pid]) continue;
 				float3 d_p = { 0.0f, 0.0f, 0.0f };
