@@ -97,7 +97,7 @@ void main()
 
 	vec3 lightPos = vec3(3);
 	vec3 surfaceToLight = (lightPos - frag_in.fragPos);
-	vec3 lightColor = light.color;
+	vec3 lightColor = vec3(1); // light.color;
 
 	///
 	SurfaceOutputStandard o;
@@ -146,7 +146,7 @@ void main()
 		Lo += (kD * albedo / PI + specular) * radiance * NdotL;
 	}
 
-	vec3 ambient = vec3(0.4) * albedo * ao;
+	vec3 ambient = vec3(0.3) * albedo * ao;
 	vec3 realColor = ambient + Lo;
 
 	color = vec4(GammaCorrect(realColor), 1.0);

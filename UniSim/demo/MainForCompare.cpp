@@ -274,9 +274,9 @@ int main()
 	ClothActor human_actor{ humanmesh };
 	RenderActor render_actor{ &camera, 
 		{ 
-			{ shirtmesh,{0.4f, 0.7f, 0.9f} },
+			{ shirtmesh,{0.165f, 0.67f, 0.97f} },
 			//{ trousersmesh,{ 0.6f, 0.9f, 0.6f } },
-			{ humanmesh,{0.4f, 0.4f, 0.4f} } 
+			{ humanmesh,{0.5f, 0.5f, 0.5f} }
 		}, 
 		//rigidBodyShader
 		clothShader

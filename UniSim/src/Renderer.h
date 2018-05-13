@@ -6,6 +6,8 @@
 #include "Camera.h"
 #include "Mesh.h"
 
+#pragma optimize("", off)
+
 class SurMeshObjRenderer
 {
 public:
@@ -39,7 +41,7 @@ public:
 		glUniform3f(glGetUniformLocation(shader->Program, "light.color"), 1.0f, 1.0f, 1.0f);
 		/* from http://devernay.free.fr/cours/opengl/materials.html */
 		glUniform3f(glGetUniformLocation(shader->Program, "material.ambient"), 0.6f * r, 0.6f * g, 0.6f * b);
-		glUniform3f(glGetUniformLocation(shader->Program, "material.diffuse"), 0.6f * r, 0.6f * g, 0.6f * b);
+		glUniform3f(glGetUniformLocation(shader->Program, "material.diffuse"), /*0.6f * */r, /*0.6f * */g, /*0.6f * */b);
 		glUniform3f(glGetUniformLocation(shader->Program, "material.specular"), 0.1f * r, 0.1f * g, 0.1f * b);
 		glUniform1f(glGetUniformLocation(shader->Program, "material.shininess"), 0.07f);
 
