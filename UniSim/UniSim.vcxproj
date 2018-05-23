@@ -172,6 +172,7 @@
   <ItemGroup>
     <ClCompile Include="demo\Main01.cpp" />
     <ClCompile Include="demo\MainForCompare.cpp" />
+    <ClCompile Include="demo\MainForRemesh.cpp" />
     <ClCompile Include="src\Clock.cpp" />
     <ClCompile Include="src\EventManager.cpp" />
     <ClCompile Include="src\Mesh.cpp" />

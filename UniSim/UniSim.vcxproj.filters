@@ -45,6 +45,9 @@
     <ClCompile Include="src\Clock.cpp">
       <Filter>Source Files\src</Filter>
     </ClCompile>
+    <ClCompile Include="demo\MainForRemesh.cpp">
+      <Filter>Source Files\demo</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Mesh.h">

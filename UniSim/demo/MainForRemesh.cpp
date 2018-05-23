@@ -1,6 +1,6 @@
-//#define USE_MAIN_FOR_COMPARE
+#define USE_MAIN_FOR_REMESH
 
-#ifdef USE_MAIN_FOR_COMPARE
+#ifdef USE_MAIN_FOR_REMESH
 
 #include "../src/Mesh.h"
 #include "../src/Renderer.h"
@@ -232,9 +232,10 @@ int main()
 	//ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ColumnsClothesCouple/Cloth06.obj");
 	//ResourceManager::LoadMeshes("cloth", "E:/Computer Graphics/Materials/Models/Basic Geometries/SquareCloth_50m50/Clothes.obj");
 	//ResourceManager::LoadMeshes("shirt", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Cloth.obj");
-	ResourceManager::LoadMeshes("shirt", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Shirt_8k.obj");
 	//ResourceManager::LoadMeshes("shirt", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Shirt02.obj");
-	
+	//ResourceManager::LoadMeshes("shirt", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Shirt_8k.obj");
+	ResourceManager::LoadMeshes("shirt", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan01/Cloth.obj");
+
 	ResourceManager::LoadMeshes("trousers", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ClothMan02/Trousers.obj");
 
 	//ResourceManager::LoadMeshes("human", "E:/Computer Graphics/Materials/Models/ComplexScenes/Scene_ColumnsClothesCouple/Columns.obj");
@@ -254,8 +255,9 @@ int main()
 	//	0.0f, 0.32f, 0.0f, 0.0f,
 	//	0.0f, 0.0f, 0.32f, 0.0f
 	//});
-	//shirtmesh->remesh(0.5f, 3);
+	shirtmesh->remesh(0.54f, 3);
 	shirtmesh->computeNormals();
+	std::cout << shirtmesh->getMesh().number_of_vertices() << std::endl;
 
 	//trousersmesh->remesh(0.5f, 3);
 	trousersmesh->computeNormals();
@@ -274,9 +276,9 @@ int main()
 	ClothActor human_actor{ humanmesh };
 	RenderActor render_actor{ &camera, 
 		{ 
-			{ shirtmesh,{0.165f, 0.67f, 0.97f} },
+			{ shirtmesh,{0.165f, 0.67f, 0.97f} }//,
 			//{ trousersmesh,{ 0.6f, 0.9f, 0.6f } },
-			{ humanmesh,{0.5f, 0.5f, 0.5f} }
+			//{ humanmesh,{0.5f, 0.5f, 0.5f} }
 		}, 
 		//rigidBodyShader
 		clothShader
